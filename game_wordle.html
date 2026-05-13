@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WORDLE</title>
+<style>
+:root { --g:#3fbf3f; --gs:#6fdc6f; --gd:#2a9f2a; --r:#ff4444; --gold:#ffcc00; --bg:#000; }
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ background:var(--bg); color:var(--g); font-family:Arial,sans-serif;
+      display:flex; flex-direction:column; min-height:100vh; user-select:none; }
+#hdr{ border-bottom:2px solid var(--g); box-shadow:0 0 14px color-mix(in srgb,var(--g) 60%,transparent);
+       padding:10px 24px; display:flex; align-items:center; gap:16px; flex-shrink:0;
+       background:var(--bg); position:sticky; top:0; z-index:10; }
+#hdr-title{ font-size:20px; font-weight:bold; letter-spacing:5px;
+             text-shadow:0 0 10px var(--g); flex:1; text-align:center; }
+#hdr-sub{ font-size:9px; letter-spacing:2px; color:var(--gs); text-align:center; }
+.back-btn{ padding:5px 14px; border:1px solid var(--g); background:transparent;
+            color:var(--g); font-size:10px; letter-spacing:2px; cursor:pointer; transition:.15s; white-space:nowrap; }
+.back-btn:hover{ background:var(--g); color:#000; }
+#game-wrap{ flex:1; display:flex; justify-content:center; align-items:flex-start;
+             flex-direction:column; gap:10px; padding:14px 16px 24px;
+             align-items:center; overflow-y:auto; }
+.score-bar{ display:flex; gap:20px; font-size:11px; letter-spacing:2px; color:var(--gs);
+             flex-shrink:0; flex-wrap:wrap; justify-content:center; }
+.score-val{ color:var(--g); font-weight:bold; font-size:13px; }
+.btn{ padding:7px 20px; border:1px solid var(--g); background:transparent; color:var(--g);
+       font-size:11px; letter-spacing:2px; cursor:pointer; transition:.15s; }
+.btn:hover{ background:var(--g); color:#000; }
+.btn.red{ border-color:var(--r); color:var(--r); }
+.btn.red:hover{ background:var(--r); color:#000; }
+
+#wd-outer{ display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; position:relative; }
+#wd-board{ display:flex; flex-direction:column; gap:5px; }
+.wd-row{ display:flex; gap:5px; }
+.wd-tile{ width:54px; height:54px; border:2px solid #3a3a3a; display:flex;
+          align-items:center; justify-content:center; font-size:22px;
+          font-weight:bold; text-transform:uppercase; color:#fff;
+          transition:border-color .05s; position:relative; }
+.wd-tile.filled{ border-color:#888; animation:wd-pop .1s ease; }
+.wd-tile.correct{ background:#538d4e; border-color:#538d4e; color:#fff; animation:wd-flip .5s ease forwards; }
+.wd-tile.present{ background:#b59f3b; border-color:#b59f3b; color:#fff; animation:wd-flip .5s ease forwards; }
+.wd-tile.absent { background:#3a3a3c; border-color:#3a3a3c; color:#fff; animation:wd-flip .5s ease forwards; }
+.wd-tile.shake  { animation:wd-shake .5s ease; }
+@keyframes wd-pop{ 0%{transform:scale(1)} 50%{transform:scale(1.1)} 100%{transform:scale(1)} }
+@keyframes wd-shake{ 0%,100%{transform:translateX(0)} 10%,50%,90%{transform:translateX(-4px)} 30%,70%{transform:translateX(4px)} }
+@keyframes wd-flip{ 0%{transform:rotateX(0)} 50%{transform:rotateX(-90deg)} 100%{transform:rotateX(0)} }
+#wd-keyboard{ display:flex; flex-direction:column; gap:5px; }
+.wd-kb-row{ display:flex; gap:5px; justify-content:center; }
+.wd-key{ min-width:36px; height:56px; padding:0 6px; border:none;
+         background:#818384; color:#fff; font-size:12px; font-weight:bold;
+         cursor:pointer; display:flex; align-items:center; justify-content:center;
+         letter-spacing:1px; border-radius:4px; transition:background .2s; }
+.wd-key:hover{ filter:brightness(1.15); }
+.wd-key.correct{ background:#538d4e; }
+.wd-key.present{ background:#b59f3b; }
+.wd-key.absent { background:#3a3a3c; }
+#wd-toast{ position:absolute; top:-32px; left:50%; transform:translateX(-50%);
+           background:#fff; color:#000; padding:8px 16px; font-size:13px;
+           font-weight:bold; letter-spacing:1px; border-radius:4px; pointer-events:none;
+           opacity:0; transition:opacity .2s; white-space:nowrap; z-index:10; }
+#wd-toast.show{ opacity:1; }
+
+/* Stats modal */
+#wd-stats-modal{ position:fixed; inset:0; background:rgba(0,0,0,.85);
+                 display:none; justify-content:center; align-items:center; z-index:100; }
+#wd-stats-modal.show{ display:flex; }
+#wd-stats-box{ background:#121213; border:2px solid var(--g); padding:24px 28px;
+               max-width:400px; width:90%; display:flex; flex-direction:column; gap:16px; position:relative; }
+#wd-stats-close{ position:absolute; top:10px; right:14px; background:none; border:none;
+                 color:#888; font-size:18px; cursor:pointer; }
+#wd-stats-close:hover{ color:#fff; }
+.wd-stats-title{ font-size:13px; letter-spacing:3px; color:#fff; text-align:center; font-weight:bold; }
+.wd-stats-row{ display:flex; justify-content:center; gap:20px; }
+.wd-stat{ display:flex; flex-direction:column; align-items:center; gap:2px; }
+.wd-stat-val{ font-size:28px; font-weight:bold; color:#fff; }
+.wd-stat-lbl{ font-size:9px; letter-spacing:1px; color:#818384; text-align:center; max-width:44px; }
+.wd-dist-row{ display:flex; align-items:center; gap:6px; }
+.wd-dist-num{ font-size:12px; color:#fff; width:10px; }
+.wd-dist-bar-wrap{ flex:1; background:#3a3a3c; height:20px; }
+.wd-dist-bar{ height:100%; background:#538d4e; min-width:20px; display:flex;
+              align-items:center; justify-content:flex-end; padding-right:6px;
+              font-size:12px; font-weight:bold; color:#fff; transition:width .5s; }
+.wd-dist-bar.current{ background:#b59f3b; }
+.wd-share-area{ display:flex; flex-direction:column; gap:6px; align-items:center; }
+.wd-timer-row{ display:flex; justify-content:space-around; width:100%; }
+.wd-timer-label{ font-size:10px; letter-spacing:1px; color:#818384; text-align:center; }
+.wd-timer-val{ font-size:18px; font-weight:bold; color:#fff; font-family:monospace; }
+#wd-share-btn{ background:var(--g); color:#000; border:none; padding:12px 28px;
+               font-size:12px; font-weight:bold; letter-spacing:2px; cursor:pointer;
+               border-radius:4px; transition:.15s; }
+#wd-share-btn:hover{ filter:brightness(1.15); }
+#wd-wordle-num{ font-size:10px; letter-spacing:2px; color:#818384; text-align:center; }
+
+</style>
+</head>
+<body>
+<div id="hdr">
+  <button class="back-btn" onclick="(function(){if(window.opener||window.history.length<=1){window.close();}else{location.href='websites.html';}})()">← BACK</button>
+  <div style="flex:1;text-align:center;">
+    <div id="hdr-title">WORDLE</div>
+    <div id="hdr-sub"></div>
+  </div>
+  <div style="width:90px;display:flex;justify-content:flex-end;align-items:center;gap:8px;">
+  <button onclick="_goFS()" style="background:transparent;border:1px solid #2a4a2a;color:#3a6a3a;font-size:10px;letter-spacing:1px;padding:4px 8px;cursor:pointer;font-family:monospace;" title="Fullscreen (F)">&#9974; FULL</button>
+</div>
+</div>
+<div id="game-wrap">
+
+<div id="wd-outer">
+  <div id="wd-toast"></div>
+  <div id="wd-wordle-num"></div>
+  <div id="wd-board"></div>
+  <div id="wd-restart-bar" style="display:none;justify-content:center;gap:12px;padding:8px 0;">
+    <button onclick="wdPlayAgain()" style="background:var(--g);color:#000;border:none;padding:10px 28px;font-size:12px;font-weight:bold;letter-spacing:3px;cursor:pointer;">▶ PLAY AGAIN</button>
+    <button onclick="wdShowStats(false,0)" style="background:transparent;border:1px solid var(--gs);color:var(--gs);padding:10px 20px;font-size:11px;letter-spacing:2px;cursor:pointer;">📊 STATS</button>
+  </div>
+  <div id="wd-keyboard">
+    <div class="wd-kb-row" id="wd-kr1"></div>
+    <div class="wd-kb-row" id="wd-kr2"></div>
+    <div class="wd-kb-row" id="wd-kr3"></div>
+  </div>
+</div>
+
+<div id="wd-stats-modal">
+  <div id="wd-stats-box">
+    <button id="wd-stats-close" onclick="wdHideStats()">✕</button>
+    <div class="wd-stats-title">STATISTICS</div>
+    <div class="wd-stats-row" id="wd-stats-row"></div>
+    <div class="wd-stats-title" style="font-size:11px;">GUESS DISTRIBUTION</div>
+    <div id="wd-dist"></div>
+    <div id="wd-share-area" class="wd-share-area" style="display:none;">
+      <div class="wd-timer-row">
+        <button id="wd-play-again-btn" onclick="wdPlayAgain()" style="background:var(--g);color:#000;border:none;padding:12px 32px;font-size:13px;font-weight:bold;letter-spacing:3px;cursor:pointer;width:100%;">▶ PLAY AGAIN</button>
+      </div>
+      <button id="wd-share-btn" onclick="wdShare()">SHARE 📋</button>
+    </div>
+  </div>
+</div>
+
+</div>
+<script>
+(function(){
+  var t=JSON.parse(localStorage.getItem('scpLastTheme')||localStorage.getItem('scpTheme')||'{}');
+  var bg=t.bg||'#000000', ac=t.accent||'#3fbf3f';
+  document.documentElement.style.setProperty('--g', ac);
+  document.documentElement.style.setProperty('--bg', bg);
+  function lighten(hex,amt){
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    r=Math.min(255,r+amt);g=Math.min(255,g+amt);b=Math.min(255,b+amt);
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  document.documentElement.style.setProperty('--gs', lighten(ac,50));
+  document.documentElement.style.setProperty('--gd', lighten(ac,-30));
+  document.body.style.backgroundColor=bg;
+  document.getElementById('hdr').style.backgroundColor=bg;
+  // Disable right-click on all game pages
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; });
+  // Disable right-click drag image ghost
+  document.addEventListener('dragstart', function(e){ e.preventDefault(); return false; });
+})();
+
+// ── WORD LISTS ────────────────────────────────────────────────────────────────
+// Answers: curated common words (365+ for daily rotation)
+const WD_ANSWERS = [
+  'AAHED','AALII','ABACI','ABACK','ABAFT','ABASE','ABASH','ABATE','ABBEY','ABBOT','ABHOR','ABIDE','ABLER','ABODE','ABORT','ABOUT','ABOVE','ABUSE','ABYSS','ACHED',
+  'ACHOO','ACIDS','ACMES','ACORN','ACRED','ACRID','ACTED','ACUTE','ADAGE','ADAPT','ADDED','ADDER','ADEPT','ADMIN','ADMIT','ADOBE','ADORN','ADULT','AEGIS','AEONS',
+  'AFFIX','AFOOT','AFOUL','AGAPE','AGATE','AGAVE','AGILE','AGING','AGLOW','AGONY','AGORA','AGREE','AHEAD','AIDED','AIMER','AIRED','AISLE','ALARM','ALBUM','ALDER',
+  'ALERT','ALGAE','ALIBI','ALIEN','ALIGN','ALIKE','ALLAY','ALLEY','ALLOT','ALLOW','ALLOY','ALONE','ALONG','ALOOF','ALOUD','ALPHA','ALTER','AMBER','AMBLE','AMEND',
+  'AMINO','AMISS','AMOUR','AMPLE','AMUCK','AMUSE','ANGEL','ANGER','ANGLE','ANGRY','ANNEX','ANNOY','ANTIC','ANVIL','APART','APISH','APPLE','APPLY','APTLY','ARBOR',
+  'ARDOR','ARENA','ARGOT','ARGUE','ARISE','AROMA','AROSE','ARRAY','ARROW','ARSON','ASIDE','ASKEW','ASSET','ATILT','ATONE','ATTIC','AUDIO','AUGUR','AURAL','AVAIL',
+  'AVERT','AVIAN','AVOID','AWAIT','AWARE','AWASH','AWFUL','AWOKE','AXIAL','AXIOM','AZURE','BACON','BADGE','BADLY','BAGEL','BAGGY','BALMY','BANAL','BANDY','BANJO',
+  'BARBS','BARGE','BARON','BASIC','BASIL','BASIN','BASIS','BATCH','BATHE','BATTY','BAYOU','BEADY','BEARD','BEAST','BELLE','BENCH','BERRY','BERTH','BIBLE','BIDDY',
+  'BIDET','BIGOT','BIRCH','BISON','BLAND','BLANK','BLARE','BLAST','BLEAK','BLEAR','BLEAT','BLEED','BLEND','BLESS','BLEST','BLIMP','BLIND','BLOAT','BLOCK','BLOKE',
+  'BLOND','BLOOD','BLOOM','BLOWN','BLUNT','BLURB','BLURT','BOARD','BOAST','BOGUS','BONUS','BOTCH','BOUGH','BOUND','BOXER','BRAID','BRAIN','BRAND','BRASH','BRASS',
+  'BRAVE','BRAWL','BRAWN','BRAZE','BREAK','BREED','BRICK','BRIDE','BRINE','BRING','BRINK','BRISK','BROKE','BROOK','BROTH','BROWN','BRUNT','BRUTE','BUFFS','BUGGY',
+  'BUILD','BULGE','BULLY','BUNNY','BUSHY','BUTCH','BUXOM','BYLAW','CABAL','CABLE','CACHE','CADET','CAMEO','CAMPY','CANDY','CAPUT','CARGO','CARTE','CARVE','CASTE',
+  'CATTY','CAULK','CAVIL','CEDAR','CHAFE','CHAIN','CHANT','CHAOS','CHAPS','CHARD','CHARY','CHASE','CHASM','CHEAP','CHECK','CHEEK','CHEER','CHESS','CHIDE','CHIEF',
+  'CHILD','CHILL','CHIME','CHIRP','CHOMP','CHOPS','CHORD','CHOSE','CHUNK','CIVIC','CIVIL','CLAIM','CLAMP','CLANG','CLASP','CLEFT','CLIME','CLINK','CLOAK','CLOMP',
+  'CLOSE','CLOTH','CLOUD','CLOUT','CLOWN','CLUCK','CLUMP','COACH','COAST','COBRA','COILS','COLTS','COMBO','COMBS','COMET','COMIC','COOPS','CORNY','CORPS','COUCH',
+  'COUPS','COZEN','CRAMP','CRANE','CRANK','CRAVE','CREAK','CREEP','CREPT','CREST','CRIMP','CRISP','CROAK','CRONE','CROPS','CROSS','CROWD','CROWN','CRUDE','CRUEL',
+  'CRUMB','CRUSE','CRUSH','CRUST','CRYPT','CUBBY','CURBS','CURLY','CURRY','CURSE','CURVE','CYCLE','CYSTS','DAFFY','DAILY','DAISY','DALLY','DANDY','DATUM','DAUBS',
+  'DECAF','DECAL','DECAY','DECOR','DECOY','DEFER','DEIGN','DEITY','DELTA','DELVE','DEMON','DENSE','DEPOT','DERBY','DETOX','DEVIL','DICEY','DIGIT','DINGO','DISCO',
+  'DITTY','DITZY','DIVAN','DIVVY','DIZZY','DODGE','DODGY','DOGMA','DOLLY','DOLTS','DONOR','DOPEY','DOWDY','DOWEL','DOWRY','DRAFT','DRAIN','DRAMA','DRANK','DRAPE',
+  'DRAWL','DREAD','DREAM','DRESS','DRIED','DRIFT','DRINK','DRIVE','DRONE','DROOL','DROOP','DROVE','DROWN','DRUPE','DUNCE','DUSKY','DUSTY','DWARF','EAGER','EAGLE',
+  'EARLY','EARTH','EASEL','EBONY','EERIE','EIGHT','ELBOW','ELDER','ELEGY','ELFIN','ELIDE','ELITE','ELOPE','EMBED','EMBER','EMCEE','EMERY','EMOTE','EMPTY','ENDOW',
+  'ENEMY','ENJOY','ENSUE','ENTER','ENVOY','EPICS','EPOCH','EQUAL','EQUIP','ERUPT','ESSAY','ETHOS','EVADE','EVENT','EVERY','EVOKE','EXACT','EXALT','EXERT','EXILE',
+  'EXIST','EXTRA','EXUDE','EXULT','FABLE','FACET','FAINT','FAITH','FALSE','FANCY','FARCE','FATAL','FEAST','FEIGN','FELON','FERAL','FERRY','FETCH','FETID','FEVER',
+  'FIBRE','FIEND','FIFTH','FILTH','FINCH','FIZZY','FLAIR','FLAME','FLANK','FLARE','FLASK','FLAWS','FLECK','FLOAT','FLOCK','FLOOR','FLOUR','FLUFF','FLUKE','FLUNG',
+  'FLUTE','FLYER','FOAMY','FOCUS','FOLLY','FORAY','FORGE','FORTE','FORTH','FOUND','FRAIL','FRAME','FRANC','FRAUD','FREAK','FREED','FRESH','FROND','FRONT','FROTH',
+  'FROZE','FRUIT','FULLY','FUNGI','FUNKY','FUNNY','FUROR','GABBY','GAUDY','GAUZE','GAVEL','GECKO','GENRE','GHOST','GIDDY','GIRTH','GLADE','GLARE','GLASS','GLAZE',
+  'GLEAM','GLEAN','GLIDE','GLINT','GLOAT','GLOOM','GLORY','GLOSS','GLOVE','GLYPH','GNASH','GOLEM','GORGE','GOUGE','GRACE','GRADE','GRAIL','GRAIN','GRAND','GRANT',
+  'GRASP','GRATE','GRAVE','GRAZE','GREED','GREET','GRIEF','GRIME','GRIND','GRIPE','GROAN','GROIN','GROPE','GROSS','GROUT','GROVE','GROWL','GRUEL','GRUFF','GUILD',
+  'GUILE','GUISE','GULCH','GUSTO','GYPSY','HAIKU','HAIRY','HALVE','HANDY','HARDY','HASTE','HATCH','HAUNT','HAVOC','HEDGE','HEFTY','HEIST','HELLO','HELPS','HENCE',
+  'HERBY','HERON','HINGE','HIPPO','HITCH','HOARD','HOBBY','HOLLY','HOMER','HOUND','HOVEL','HUMID','HYDRA','HYENA','HYPER','IDIOT','IDYLL','ILEUM','IMAGE','IMPLY',
+  'INANE','INBOX','INDEX','INEPT','INFIX','INFRA','INLET','INPUT','INSET','INTER','INTRO','IRKED','IRONY','ISLET','ITCHY','IVORY','JAZZY','JOUST','JUMBO','KAYAK',
+  'KEBAB','KNACK','KNAVE','KNEEL','KNIFE','KNOCK','KRILL','LABEL','LABOR','LARGE','LASER','LATCH','LATER','LATTE','LAUGH','LAYER','LEACH','LEAKY','LEDGE','LEFTY',
+  'LEGAL','LEMON','LEVEL','LEVER','LIGHT','LILAC','LIMBO','LIMBS','LINER','LIVER','LLAMA','LOCAL','LODGE','LOFTY','LOGIC','LOOPY','LORRY','LOVER','LUNAR','LUNCH',
+  'LUSTY','LYING','LYMPH','MAGIC','MAMBO','MANOR','MAPLE','MARCH','MARSH','MATCH','MEDAL','MELEE','MELON','MERCY','MERGE','MERIT','METAL','MICRO','MIMIC','MINCE',
+  'MIRTH','MOCHA','MODEL','MOIST','MOLDY','MOMMY','MOODY','MORAL','MORPH','MOTIF','MUDDY','MUNCH','MURKY','MUSTY','MUTED','MYRRH','NADIR','NASTY','NAVAL','NEEDY',
+  'NERVE','NEXUS','NINJA','NITRO','NOBLE','NOISE','NONCE','NOTCH','NOVEL','NYMPH','OCCUR','OCHRE','OCTET','ODDLY','OFFAL','OFFER','OLIVE','OMBRE','ONSET','OPTIC',
+  'ORBIT','ORDER','OUTER','OVATE','OXIDE','OZONE','PADDY','PAINT','PANGS','PANIC','PANSY','PARKA','PARSE','PATCH','PAUSE','PAVED','PEACE','PEACH','PEARL','PEDAL',
+  'PENAL','PERCH','PETAL','PETTY','PHASE','PILOT','PIPER','PITCH','PIXEL','PIXIE','PIZZA','PLAID','PLAIN','PLANK','PLANT','PLAZA','PLEAD','PLUCK','PLUMB','PLUME',
+  'PLUMP','PLUNK','PLUSH','POACH','POKER','POLAR','POPPY','PORCH','POSED','POUCH','PRANK','PRAWN','PRESS','PRICK','PRICY','PRIDE','PRIME','PRIMP','PRISM','PRIVY',
+  'PRIZE','PROBE','PRONE','PRONG','PROSE','PROUD','PROVE','PROWL','PRUNE','PSALM','PUBIC','PUNCH','PUPIL','QUACK','QUALM','QUERY','QUEST','QUEUE','QUICK','QUIET',
+  'QUILL','QUIRK','QUOTA','QUOTE','RABBI','RACER','RADAR','RAINY','RALLY','RAMEN','RANCH','RASPY','RAVEN','RAYON','REACH','REALM','REBUS','RECAP','RECON','REEDY',
+  'REIGN','RELAY','REMIX','REPAY','REPEL','REPOT','RERUN','RESIN','RETRY','REVEL','RIDGE','RIGHT','RIGID','RIGOR','RISKY','RIVAL','RIVET','ROAST','ROBIN','ROCKY',
+  'ROGUE','ROWDY','RUBLE','RUDDY','RULER','RUSTY','SADLY','SAGGY','SAINT','SALVE','SALVO','SANDY','SASSY','SAUCE','SAUCY','SAVOR','SCALD','SCALP','SCALY','SCAMP',
+  'SCOPE','SCORE','SCOUT','SCRAM','SCREW','SCRUB','SEEDY','SEIZE','SENSE','SERIF','SERUM','SERVO','SEVEN','SHACK','SHADE','SHAFT','SHAKE','SHALE','SHAME','SHAPE',
+  'SHARD','SHARP','SHEEN','SHEEP','SHEER','SHELF','SHELL','SHIFT','SHINE','SHIRE','SHOOT','SHORE','SHOUT','SIGMA','SINCE','SIXTH','SIXTY','SKATE','SKIMP','SLACK',
+  'SLATE','SLIME','SLINK','SLOPE','SLOSH','SLUMP','SLURP','SMART','SMASH','SMEAR','SMELL','SMELT','SMIRK','SMITE','SMOCK','SNACK','SNAKE','SNARE','SNEAK','SNOOP',
+  'SNORE','SNOUT','SOBER','SOGGY','SOLAR','SOLID','SONIC','SOOTH','SORRY','SOUTH','SPACE','SPADE','SPARK','SPAWN','SPEAK','SPECK','SPEED','SPELL','SPEND','SPICE',
+  'SPILL','SPINE','SPITE','SPLAT','SPLIT','SPOOF','SPOON','SPORT','SPOUT','SPRAY','SPREE','SPRIG','SPUNK','SQUAT','SQUID','STACK','STAFF','STAID','STAIN','STALE',
+  'STALL','STAMP','STAND','STARK','STASH','STAVE','STEAK','STEAL','STEAM','STEEP','STEER','STERN','STICK','STIFF','STING','STOMP','STORE','STORM','STORY','STOUT',
+  'STRAP','STRAW','STRAY','STRIP','STRUT','STUDY','STUFF','STUMP','STUNG','STUNK','SUAVE','SUNNY','SURGE','SWAMP','SWARM','SWEAR','SWEAT','SWEET','SWEPT','SWIFT',
+  'SWING','SWIPE','SWIRL','SWOON','SWORD','SWORN','SYRUP','TABOO','TAFFY','TALON','TANGO','TAPIR','TARDY','TATTY','TAUNT','TAWNY','TEPID','TERSE','THANE','THANK',
+  'THERM','THICK','THIEF','THING','THINK','THONG','THORN','TIGER','TIGHT','TILDE','TINGE','TIPSY','TOAST','TONIC','TOPAZ','TORSO','TOUCH','TOUGH','TOXIC','TRACE',
+  'TRACK','TRADE','TRAIL','TRAIN','TRAMP','TRASH','TRAWL','TREAD','TRITE','TROTH','TRYST','TULIP','TULLE','TURBO','TUTOR','TWEAK','TWICE','TWIST','TYING','ULTRA',
+  'UMBRA','UNCLE','UNDUE','UNIFY','UNION','UNITE','UNTIL','UNZIP','UPSET','USHER','VALID','VALOR','VALVE','VAULT','VENAL','VENOM','VERGE','VERSO','VIGOR','VILLA',
+  'VIOLA','VIPER','VIRAL','VIRUS','VISIT','VISOR','VIVID','VOCAL','VOGUE','VOMIT','VOTER','VOUCH','VYING','WACKY','WAGER','WALTZ','WASTE','WATCH','WEARY','WEAVE',
+  'WEDGE','WEIRD','WELTS','WHACK','WHIFF','WHINE','WHIRL','WHISK','WHOLE','WHOSE','WIELD','WIMPY','WINDS','WITCH','WITTY','WONKY','WOODS','WOOZY','WRATH','WRIST',
+  'WRONG','YACHT','YEARN','YIELD','YOUNG','ZAPPY','ZEBRA','ZESTY','ZILCH','ZIPPY'
+];
+
+// All valid guesses (superset)  
+const WD_VALID = new Set([...WD_ANSWERS]);
+
+// ── DAILY WORD LOGIC ──────────────────────────────────────────────────────────
+const WD_EPOCH = new Date('2024-01-01T00:00:00').getTime();
+function wdDayIndex() {
+  const now = new Date();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.floor((midnight - WD_EPOCH) / 86400000);
+}
+function wdTodaysWord() {
+  // Random word each new game session
+  let w = sessionStorage.getItem('wd_word');
+  if (!w) { w = WD_ANSWERS[Math.floor(Math.random()*WD_ANSWERS.length)]; sessionStorage.setItem('wd_word', w); }
+  return w;
+}
+function wdPickNewWord() { sessionStorage.removeItem('wd_word'); return wdTodaysWord(); }
+function wdDateKey() { return 'wd_day_' + wdDayIndex(); }
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let wdWord, wdGuesses, wdCurrent, wdDone, wdTiles=[], wdKeys={}, wdAlreadyPlayed=false;
+
+function wdLoadStats() {
+  return JSON.parse(localStorage.getItem('wd_stats2')||'{"played":0,"wins":0,"streak":0,"maxStreak":0,"dist":[0,0,0,0,0,0],"lastWin":-1}');
+}
+function wdSaveStats(s) { localStorage.setItem('wd_stats2', JSON.stringify(s)); }
+
+function wdInit() {
+  wdWord = wdTodaysWord();
+  wdGuesses = []; wdCurrent = ''; wdDone = false; wdTiles = []; wdKeys = {};
+  const _rb=document.getElementById('wd-restart-bar'); if(_rb) _rb.style.display='none';
+  document.getElementById('wd-wordle-num').textContent = 'WORDLE #' + (wdDayIndex()+1);
+
+  // Build board
+  const board = document.getElementById('wd-board'); board.innerHTML = '';
+  for(let r=0;r<6;r++){
+    const row=document.createElement('div'); row.className='wd-row'; wdTiles[r]=[];
+    for(let c=0;c<5;c++){const t=document.createElement('div');t.className='wd-tile';row.appendChild(t);wdTiles[r][c]=t;}
+    board.appendChild(row);
+  }
+
+  // Build keyboard
+  ['QWERTYUIOP','ASDFGHJKL','⌫ZXCVBNM↵'].forEach((row,ri)=>{
+    const el=document.getElementById('wd-kr'+(ri+1)); el.innerHTML='';
+    [...row].forEach(k=>{
+      const btn=document.createElement('button'); btn.className='wd-key'; btn.textContent=k;
+      if(k==='⌫'||k==='↵') btn.style.minWidth='52px';
+      btn.onclick=()=>wdKey(k); el.appendChild(btn);
+      if(k!=='⌫'&&k!=='↵') wdKeys[k]=btn;
+    });
+  });
+
+  // Infinite play mode — always start fresh
+}
+
+function wdKey(k) {
+  if(wdDone) return;
+  if(k==='⌫'){ wdCurrent=wdCurrent.slice(0,-1); wdRenderCurrent(); return; }
+  if(k==='↵'){ wdSubmit(); return; }
+  if(wdCurrent.length<5){ wdCurrent+=k; wdRenderCurrent(); }
+}
+
+function wdRenderCurrent() {
+  const r=wdGuesses.length;
+  for(let c=0;c<5;c++){
+    wdTiles[r][c].textContent=wdCurrent[c]||'';
+    wdTiles[r][c].className='wd-tile'+(wdCurrent[c]?' filled':'');
+  }
+}
+
+function wdSubmit() {
+  if(wdCurrent.length<5){ wdShake(); wdToast('NOT ENOUGH LETTERS'); return; }
+  if(!WD_VALID.has(wdCurrent)){ wdShake(); wdToast('NOT IN WORD LIST'); return; }
+  const r = wdGuesses.length;
+  wdGuesses.push(wdCurrent);
+  wdRevealRow(r, wdCurrent, true);
+  wdCurrent = '';
+}
+
+function wdRevealRow(r, guess, animate) {
+  const result = Array(5).fill('absent');
+  const ans = [...wdWord], g = [...guess];
+  for(let i=0;i<5;i++) if(g[i]===ans[i]){result[i]='correct';ans[i]=g[i]='_';}
+  for(let i=0;i<5;i++) if(result[i]!=='correct'){const j=ans.indexOf(g[i]);if(j!==-1){result[i]='present';ans[j]='_';}}
+
+  const delay = animate ? 300 : 0;
+  result.forEach((s,i) => {
+    setTimeout(()=>{
+      wdTiles[r][i].className='wd-tile '+s;
+      const key=wdKeys[guess[i]];
+      if(key){
+        if(s==='correct') key.className='wd-key correct';
+        else if(s==='present'&&!key.className.includes('correct')) key.className='wd-key present';
+        else if(s==='absent'&&key.className==='wd-key') key.className='wd-key absent';
+      }
+    }, animate ? i*300 : i*80);
+  });
+
+  const won = guess === wdWord;
+  const last = wdGuesses.length === 6;
+
+  if(won || last) {
+    const finDelay = animate ? 5*300+400 : 5*80+200;
+    setTimeout(()=>{
+      wdDone = true;
+      if(animate) {
+        const stats = wdLoadStats();
+        stats.played++;
+        if(won){ stats.wins++; stats.streak++; stats.maxStreak=Math.max(stats.maxStreak,stats.streak); stats.dist[wdGuesses.length-1]++; stats.lastWin=wdDayIndex(); }
+        else { stats.streak=0; }
+        wdSaveStats(stats);
+        // Save today's result
+        localStorage.setItem(wdDateKey(), JSON.stringify({ guesses:[...wdGuesses], won, word:wdWord }));
+      }
+      if(won) wdToast(['GENIUS','MAGNIFICENT','IMPRESSIVE','SPLENDID','GREAT','PHEW'][wdGuesses.length-1], 1800);
+      else if(!animate) {} // replaying
+      else wdToast(wdWord, 2500);
+      // Show restart bar right away
+      const rb=document.getElementById('wd-restart-bar');
+      if(rb) rb.style.display='flex';
+      setTimeout(()=>wdShowStats(won, wdGuesses.length), won?1900:2700);
+    }, finDelay);
+  }
+}
+
+function wdShake() {
+  const r=wdGuesses.length;
+  wdTiles[r].forEach(t=>{t.classList.add('shake');setTimeout(()=>t.classList.remove('shake'),500);});
+}
+
+function wdToast(msg, dur=1400) {
+  const t=document.getElementById('wd-toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+
+function wdShowStats(won, numGuesses) {
+  const stats = wdLoadStats();
+  const modal = document.getElementById('wd-stats-modal');
+
+  // Stats numbers
+  const winPct = stats.played ? Math.round(stats.wins/stats.played*100) : 0;
+  document.getElementById('wd-stats-row').innerHTML = [
+    ['PLAYED', stats.played], ['WIN %', winPct],
+    ['STREAK', stats.streak], ['MAX STREAK', stats.maxStreak]
+  ].map(([l,v])=>`<div class="wd-stat"><div class="wd-stat-val">${v}</div><div class="wd-stat-lbl">${l}</div></div>`).join('');
+
+  // Distribution
+  const dist = document.getElementById('wd-dist');
+  const max = Math.max(...stats.dist, 1);
+  dist.innerHTML = stats.dist.map((n,i)=>{
+    const w = Math.max(7, Math.round(n/max*100));
+    const cur = won && numGuesses===i+1 ? ' current' : '';
+    return `<div class="wd-dist-row"><div class="wd-dist-num">${i+1}</div>
+      <div class="wd-dist-bar-wrap"><div class="wd-dist-bar${cur}" style="width:${w}%">${n}</div></div></div>`;
+  }).join('');
+
+  // Share area
+  const shareArea = document.getElementById('wd-share-area');
+  shareArea.style.display = wdDone ? '' : 'none';
+  document.getElementById('wd-num-display').textContent = '#' + (wdDayIndex()+1);
+
+  // Countdown timer to next Wordle
+  wdStartTimer();
+  modal.classList.add('show');
+}
+
+function wdHideStats() { document.getElementById('wd-stats-modal').classList.remove('show'); }
+function wdPlayAgain() {
+  wdHideStats();
+  const rb=document.getElementById('wd-restart-bar');
+  if(rb) rb.style.display='none';
+  sessionStorage.removeItem('wd_word');
+  wdInit();
+}
+
+let wdTimerInterval;
+function wdStartTimer() { /* disabled — infinite play mode */ }
+
+function wdShare() {
+  const saved = localStorage.getItem(wdDateKey());
+  if(!saved) return;
+  const {guesses, won} = JSON.parse(saved);
+  const dayNum = wdDayIndex()+1;
+  const lines = guesses.map(guess => {
+    const result = Array(5).fill('absent');
+    const ans=[...wdWord], g=[...guess];
+    for(let i=0;i<5;i++) if(g[i]===ans[i]){result[i]='correct';ans[i]=g[i]='_';}
+    for(let i=0;i<5;i++) if(result[i]!=='correct'){const j=ans.indexOf(g[i]);if(j!==-1){result[i]='present';ans[j]='_';}}
+    return result.map(r=>r==='correct'?'🟩':r==='present'?'🟨':'⬛').join('');
+  });
+  const text = `Wordle #${dayNum} ${won?guesses.length:'-'}/6\n\n${lines.join('\n')}`;
+  navigator.clipboard.writeText(text).then(()=>wdToast('COPIED! 📋',1400)).catch(()=>wdToast('SHARE FAILED',1400));
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  if(document.getElementById('wd-stats-modal').classList.contains('show')){if(e.key==='Escape')wdHideStats();return;}
+  if(e.key==='Enter') wdKey('↵');
+  else if(e.key==='Backspace') wdKey('⌫');
+  else if(/^[a-zA-Z]$/.test(e.key)) wdKey(e.key.toUpperCase());
+});
+
+window.onload = wdInit;
+
+</script>
+<script>
+function _goFS(){if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(function(){});}else{document.exitFullscreen().catch(function(){});}}
+document.addEventListener('keydown',function(e){if(e.code==='KeyF')_goFS();});
+</script></body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FLAPPY BIRD</title>
+<style>
+:root { --g:#3fbf3f; --gs:#6fdc6f; --gd:#2a9f2a; --r:#ff4444; --gold:#ffcc00; --bg:#000; }
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ background:var(--bg); color:var(--g); font-family:Arial,sans-serif;
+      display:flex; flex-direction:column; min-height:100vh; user-select:none; }
+#hdr{ border-bottom:2px solid var(--g); box-shadow:0 0 14px color-mix(in srgb,var(--g) 60%,transparent);
+       padding:10px 24px; display:flex; align-items:center; gap:16px; flex-shrink:0;
+       background:var(--bg); position:sticky; top:0; z-index:10; }
+#hdr-title{ font-size:20px; font-weight:bold; letter-spacing:5px;
+             text-shadow:0 0 10px var(--g); flex:1; text-align:center; }
+#hdr-sub{ font-size:9px; letter-spacing:2px; color:var(--gs); text-align:center; }
+.back-btn{ padding:5px 14px; border:1px solid var(--g); background:transparent;
+            color:var(--g); font-size:10px; letter-spacing:2px; cursor:pointer; transition:.15s; white-space:nowrap; }
+.back-btn:hover{ background:var(--g); color:#000; }
+#game-wrap{ flex:1; display:flex; justify-content:center; align-items:flex-start;
+             flex-direction:column; gap:10px; padding:14px 16px 24px;
+             align-items:center; overflow-y:auto; }
+.score-bar{ display:flex; gap:20px; font-size:11px; letter-spacing:2px; color:var(--gs);
+             flex-shrink:0; flex-wrap:wrap; justify-content:center; }
+.score-val{ color:var(--g); font-weight:bold; font-size:13px; }
+.btn{ padding:7px 20px; border:1px solid var(--g); background:transparent; color:var(--g);
+       font-size:11px; letter-spacing:2px; cursor:pointer; transition:.15s; }
+.btn:hover{ background:var(--g); color:#000; }
+.btn.red{ border-color:var(--r); color:var(--r); }
+.btn.red:hover{ background:var(--r); color:#000; }
+
+#flap-outer{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+#flap-canvas{ border:2px solid var(--g); box-shadow:0 0 20px color-mix(in srgb,var(--g) 50%,transparent);
+              display:block; cursor:pointer; }
+#flap-hint{ font-size:10px; letter-spacing:2px; color:var(--gs); }
+
+</style>
+</head>
+<body>
+<div id="hdr">
+  <button class="back-btn" onclick="(function(){if(window.opener||window.history.length<=1){window.close();}else{location.href='websites.html';}})()">← BACK</button>
+  <div style="flex:1;text-align:center;">
+    <div id="hdr-title">FLAPPY BIRD</div>
+    <div id="hdr-sub"></div>
+  </div>
+  <div style="width:90px;display:flex;justify-content:flex-end;align-items:center;gap:8px;">
+  <button onclick="_goFS()" style="background:transparent;border:1px solid #2a4a2a;color:#3a6a3a;font-size:10px;letter-spacing:1px;padding:4px 8px;cursor:pointer;font-family:monospace;" title="Fullscreen (F)">&#9974; FULL</button>
+</div>
+</div>
+<div id="game-wrap">
+
+<div id="flap-outer">
+<div class="score-bar">
+  <span>SCORE <span class="score-val" id="flap-score">0</span></span>
+  <span>BEST <span class="score-val" id="flap-best">0</span></span>
+</div>
+<canvas id="flap-canvas" width="340" height="460"></canvas>
+<div id="flap-hint">SPACE / TAP TO FLAP</div>
+</div>
+
+</div>
+<script>
+(function(){
+  var t=JSON.parse(localStorage.getItem('scpLastTheme')||localStorage.getItem('scpTheme')||'{}');
+  var bg=t.bg||'#000000', ac=t.accent||'#3fbf3f';
+  document.documentElement.style.setProperty('--g', ac);
+  document.documentElement.style.setProperty('--bg', bg);
+  function lighten(hex,amt){
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    r=Math.min(255,r+amt);g=Math.min(255,g+amt);b=Math.min(255,b+amt);
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  document.documentElement.style.setProperty('--gs', lighten(ac,50));
+  document.documentElement.style.setProperty('--gd', lighten(ac,-30));
+  document.body.style.backgroundColor=bg;
+  document.getElementById('hdr').style.backgroundColor=bg;
+  // Disable right-click on all game pages
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; });
+  // Disable right-click drag image ghost
+  document.addEventListener('dragstart', function(e){ e.preventDefault(); return false; });
+})();
+
+const FC=document.getElementById('flap-canvas'),CTX=FC.getContext('2d');
+const W=FC.width,H=FC.height;
+const PIPE_W=50,GAP=140,GRAV=0.38,FLAP=-7.4,SPD=2.6;
+let bird,pipes,score,best,state,raf,lastT=0;
+function getG(){return getComputedStyle(document.documentElement).getPropertyValue('--g').trim()||'#3fbf3f';}
+function getGS(){return getComputedStyle(document.documentElement).getPropertyValue('--gs').trim()||'#6fdc6f';}
+function getBg(){return getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#000';}
+function flapInit(){
+  cancelAnimationFrame(raf);
+  bird={x:80,y:H/2,vy:0,r:13};pipes=[];score=0;state='wait';
+  best=parseInt(localStorage.getItem('flap_best')||'0');
+  document.getElementById('flap-best').textContent=best;
+  document.getElementById('flap-score').textContent=0;
+}
+function flapFlap(){
+  if(state==='wait'||state==='dead'){flapInit();state='play';requestAnimationFrame(flapLoop);return;}
+  if(state==='play')bird.vy=FLAP;
+}
+function flapLoop(ts){
+  raf=requestAnimationFrame(flapLoop);
+  if(ts-lastT<1000/60)return;lastT=ts;
+  const G=getG(),GS=getGS(),BG=getBg();
+  CTX.fillStyle=BG;CTX.fillRect(0,0,W,H);
+  if(state==='play'){
+    bird.vy+=GRAV;bird.y+=bird.vy;
+    if(!pipes.length||pipes[pipes.length-1].x<W-190)pipes.push({x:W,top:60+Math.random()*(H-GAP-120),scored:false});
+    for(const p of pipes){p.x-=SPD;if(!p.scored&&p.x+PIPE_W<bird.x){p.scored=true;score++;document.getElementById('flap-score').textContent=score;}}
+    pipes=pipes.filter(p=>p.x>-PIPE_W);
+    if(bird.y-bird.r<0||bird.y+bird.r>H){state='dead';flapDie();}
+    for(const p of pipes){
+      if(bird.x+bird.r>p.x&&bird.x-bird.r<p.x+PIPE_W)
+        if(bird.y-bird.r<p.top||bird.y+bird.r>p.top+GAP){state='dead';flapDie();}
+    }
+  }
+  // pipes
+  for(const p of pipes){
+    CTX.fillStyle='#0d1f0d';CTX.fillRect(p.x,0,PIPE_W,p.top);CTX.fillRect(p.x,p.top+GAP,PIPE_W,H-p.top-GAP);
+    CTX.strokeStyle=G;CTX.lineWidth=2;CTX.strokeRect(p.x,0,PIPE_W,p.top);CTX.strokeRect(p.x,p.top+GAP,PIPE_W,H-p.top-GAP);
+    CTX.fillStyle='#142814';CTX.fillRect(p.x-4,p.top-14,PIPE_W+8,14);CTX.fillRect(p.x-4,p.top+GAP,PIPE_W+8,14);
+    CTX.strokeRect(p.x-4,p.top-14,PIPE_W+8,14);CTX.strokeRect(p.x-4,p.top+GAP,PIPE_W+8,14);
+  }
+  // bird
+  const dead=state==='dead';
+  CTX.beginPath();CTX.arc(bird.x,bird.y,bird.r,0,Math.PI*2);
+  CTX.fillStyle=dead?'#2a0000':'#0f2a0f';CTX.fill();
+  CTX.strokeStyle=dead?'#ff4444':G;CTX.lineWidth=2.5;CTX.stroke();
+  CTX.beginPath();CTX.arc(bird.x+5,bird.y-4,3.5,0,Math.PI*2);CTX.fillStyle=dead?'#ff8888':GS;CTX.fill();
+  // ground
+  CTX.strokeStyle='#1a2a1a';CTX.lineWidth=1;CTX.beginPath();CTX.moveTo(0,H-1);CTX.lineTo(W,H-1);CTX.stroke();
+  // overlay
+  if(state==='wait'||state==='dead'){
+    CTX.fillStyle='rgba(0,0,0,.72)';CTX.fillRect(0,0,W,H);
+    CTX.fillStyle=G;CTX.font='bold 24px Arial';CTX.textAlign='center';
+    CTX.fillText(state==='dead'?'GAME OVER':'FLAPPY BIRD',W/2,H/2-28);
+    if(state==='dead'){CTX.font='13px Arial';CTX.fillStyle=GS;CTX.fillText('SCORE: '+score,W/2,H/2);CTX.fillText('BEST: '+best,W/2,H/2+20);}
+    CTX.font='11px Arial';CTX.fillStyle=GS;CTX.fillText('SPACE / TAP TO '+(state==='dead'?'RETRY':'START'),W/2,H/2+50);
+    CTX.textAlign='left';
+  }
+}
+function flapDie(){if(score>best){best=score;localStorage.setItem('flap_best',best);document.getElementById('flap-best').textContent=best;}}
+FC.addEventListener('click',flapFlap);
+FC.addEventListener('touchstart',e=>{e.preventDefault();flapFlap();},{passive:false});
+document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();flapFlap();}});
+window.onload=()=>{flapInit();requestAnimationFrame(flapLoop);};
+
+</script>
+<script>
+function _goFS(){if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(function(){});}else{document.exitFullscreen().catch(function(){});}}
+document.addEventListener('keydown',function(e){if(e.code==='KeyF')_goFS();});
+</script></body>
+</html>

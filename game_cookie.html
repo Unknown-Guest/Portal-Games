@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>COOKIE CLICKER</title>
+<style>
+:root{--g:#3fbf3f;--gs:#6fdc6f;--gd:#2a9f2a;--r:#ff4444;--gold:#ffcc00;--bg:#000;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--g);font-family:'Courier New',monospace;display:flex;flex-direction:column;min-height:100vh;user-select:none;}
+#hdr{border-bottom:2px solid var(--g);box-shadow:0 0 14px color-mix(in srgb,var(--g) 60%,transparent);padding:10px 24px;display:flex;align-items:center;background:var(--bg);}
+#hdr-title{font-size:20px;font-weight:bold;letter-spacing:5px;text-shadow:0 0 10px var(--g);flex:1;text-align:center;}
+.back-btn{padding:5px 14px;border:1px solid var(--g);background:transparent;color:var(--g);font-size:10px;letter-spacing:2px;cursor:pointer;}
+.back-btn:hover{background:var(--g);color:#000;}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <button class="back-btn" onclick="(function(){if(window.opener||window.history.length<=1)window.close();else location.href='websites.html';})()">← BACK</button>
+  <div id="hdr-title">COOKIE CLICKER</div>
+  <button onclick="_goFS()">FULL</button>
+  <button onclick="resetGame()" style="margin-left:10px;border:1px solid #ff4444;color:#ff4444;background:transparent;">RESET</button>
+</div>
+
+<div style="display:flex;height:90vh;">
+  <!-- Left -->
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+    <div id="ck-count">0 cookies</div>
+    <div id="ck-cps">0 per second</div>
+    <div onclick="ckClick()" style="font-size:100px;cursor:pointer;">🍪</div>
+  </div>
+
+  <!-- Right -->
+  <div style="width:300px;overflow:auto;">
+    <h3>Buildings</h3>
+    <div id="ck-buildings"></div>
+    <h3>Upgrades</h3>
+    <div id="ck-upgrades"></div>
+  </div>
+</div>
+
+<script>
+let cookies=0,cps=0,clickPower=1;
+let lastTick=Date.now();
+
+const BUILDINGS=[
+  {name:'Cursor',base:15,cps:0.1,count:0},
+  {name:'Grandma',base:100,cps:0.5,count:0}
+];
+
+const UPGRADES=[
+  {name:'Better Click',cost:100,bought:false,effect:()=>clickPower+=1},
+  {name:'Double Click',cost:500,bought:false,effect:()=>clickPower*=2}
+];
+
+function fmt(n){return Math.floor(n);}
+function getCost(b){return Math.ceil(b.base*Math.pow(1.15,b.count));}
+
+function recalcCps(){
+  cps=BUILDINGS.reduce((s,b)=>s+b.cps*b.count,0);
+}
+
+function ckClick(){
+  cookies+=clickPower;
+  update();
+}
+
+function buyBuilding(i){
+  let b=BUILDINGS[i],cost=getCost(b);
+  if(cookies<cost)return;
+  cookies-=cost;
+  b.count++;
+  recalcCps();
+  update();
+}
+
+function buyUpgrade(i){
+  let u=UPGRADES[i];
+  if(cookies<u.cost||u.bought)return;
+  cookies-=u.cost;
+  u.bought=true;
+  u.effect();
+  update();
+}
+
+/* SAVE SYSTEM */
+function saveGame(){
+  localStorage.setItem('cookieSave',JSON.stringify({
+    cookies,
+    clickPower,
+    buildings:BUILDINGS,
+    upgrades:UPGRADES
+  }));
+}
+
+function loadGame(){
+  let save=JSON.parse(localStorage.getItem('cookieSave'));
+  if(!save)return;
+
+  cookies=save.cookies||0;
+  clickPower=save.clickPower||1;
+
+  save.buildings.forEach((b,i)=>{
+    BUILDINGS[i].count=b.count;
+  });
+
+  save.upgrades.forEach((u,i)=>{
+    UPGRADES[i].bought=u.bought;
+    if(u.bought)UPGRADES[i].effect();
+  });
+
+  recalcCps();
+}
+
+/* RESET */
+function resetGame(){
+  if(!confirm("Reset game?"))return;
+  localStorage.removeItem('cookieSave');
+  location.reload();
+}
+
+/* UI */
+function update(){
+  document.getElementById('ck-count').textContent=fmt(cookies)+" cookies";
+  document.getElementById('ck-cps').textContent=fmt(cps)+" per second";
+
+  let bdiv=document.getElementById('ck-buildings');
+  bdiv.innerHTML="";
+  BUILDINGS.forEach((b,i)=>{
+    let cost=getCost(b);
+    let el=document.createElement("div");
+    el.textContent=b.name+" ("+b.count+") - "+cost;
+    el.onclick=()=>buyBuilding(i);
+    bdiv.appendChild(el);
+  });
+
+  let udiv=document.getElementById('ck-upgrades');
+  udiv.innerHTML="";
+  UPGRADES.forEach((u,i)=>{
+    if(u.bought)return;
+    let el=document.createElement("div");
+    el.textContent=u.name+" - "+u.cost;
+    el.onclick=()=>buyUpgrade(i);
+    udiv.appendChild(el);
+  });
+}
+
+/* LOOP */
+setInterval(()=>{
+  let now=Date.now();
+  let dt=(now-lastTick)/1000;
+  lastTick=now;
+
+  cookies+=cps*dt;
+  update();
+},100);
+
+setInterval(saveGame,1000);
+
+/* START */
+loadGame();
+update();
+
+</script>
+</body>
+</html>

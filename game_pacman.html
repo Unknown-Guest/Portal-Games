@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAC-MAN</title>
+<style>
+:root { --g:#3fbf3f; --gs:#6fdc6f; --gd:#2a9f2a; --r:#ff4444; --gold:#ffcc00; --bg:#000; }
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ background:var(--bg); color:var(--g); font-family:Arial,sans-serif;
+      display:flex; flex-direction:column; min-height:100vh; user-select:none; }
+#hdr{ border-bottom:2px solid var(--g); box-shadow:0 0 14px color-mix(in srgb,var(--g) 60%,transparent);
+       padding:10px 24px; display:flex; align-items:center; gap:16px; flex-shrink:0;
+       background:var(--bg); position:sticky; top:0; z-index:10; }
+#hdr-title{ font-size:20px; font-weight:bold; letter-spacing:5px;
+             text-shadow:0 0 10px var(--g); flex:1; text-align:center; }
+#hdr-sub{ font-size:9px; letter-spacing:2px; color:var(--gs); text-align:center; }
+.back-btn{ padding:5px 14px; border:1px solid var(--g); background:transparent;
+            color:var(--g); font-size:10px; letter-spacing:2px; cursor:pointer; transition:.15s; white-space:nowrap; }
+.back-btn:hover{ background:var(--g); color:#000; }
+#game-wrap{ flex:1; display:flex; justify-content:center; align-items:flex-start;
+             flex-direction:column; gap:10px; padding:14px 16px 24px;
+             align-items:center; overflow-y:auto; }
+.score-bar{ display:flex; gap:20px; font-size:11px; letter-spacing:2px; color:var(--gs);
+             flex-shrink:0; flex-wrap:wrap; justify-content:center; }
+.score-val{ color:var(--g); font-weight:bold; font-size:13px; }
+.btn{ padding:7px 20px; border:1px solid var(--g); background:transparent; color:var(--g);
+       font-size:11px; letter-spacing:2px; cursor:pointer; transition:.15s; }
+.btn:hover{ background:var(--g); color:#000; }
+.btn.red{ border-color:var(--r); color:var(--r); }
+.btn.red:hover{ background:var(--r); color:#000; }
+
+#pac-outer{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+#pac-ui{ display:flex; gap:24px; font-size:11px; letter-spacing:3px; color:var(--gs); }
+#pac-canvas{ display:block; cursor:pointer; image-rendering:pixelated; }
+#pac-new-btn{ display:none; }
+
+</style>
+</head>
+<body>
+<div id="hdr">
+  <button class="back-btn" onclick="(function(){if(window.opener||window.history.length<=1){window.close();}else{location.href='websites.html';}})()">← BACK</button>
+  <div style="flex:1;text-align:center;">
+    <div id="hdr-title">PAC-MAN</div>
+    <div id="hdr-sub"></div>
+  </div>
+  <div style="width:90px;"></div>
+</div>
+<div id="game-wrap">
+
+<div id="pac-outer">
+  <div id="pac-ui">
+    <span>SCORE <span class="score-val" id="pac-score">0</span></span>
+    <span>HIGH <span class="score-val" id="pac-high">0</span></span>
+    <span>LIVES <span class="score-val" id="pac-lives">3</span></span>
+  </div>
+  <canvas id="pac-canvas" width="448" height="496"></canvas>
+  <button class="btn" id="pac-new-btn" onclick="pacNewMaze()">🔀 NEW MAZE</button>
+</div>
+
+</div>
+<script>
+(function(){
+  var t=JSON.parse(localStorage.getItem('scpLastTheme')||localStorage.getItem('scpTheme')||'{}');
+  var bg=t.bg||'#000000', ac=t.accent||'#3fbf3f';
+  document.documentElement.style.setProperty('--g', ac);
+  document.documentElement.style.setProperty('--bg', bg);
+  function lighten(hex,amt){
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    r=Math.min(255,r+amt);g=Math.min(255,g+amt);b=Math.min(255,b+amt);
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  document.documentElement.style.setProperty('--gs', lighten(ac,50));
+  document.documentElement.style.setProperty('--gd', lighten(ac,-30));
+  document.body.style.backgroundColor=bg;
+  document.getElementById('hdr').style.backgroundColor=bg;
+  // Disable right-click on all game pages
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; });
+  // Disable right-click drag image ghost
+  document.addEventListener('dragstart', function(e){ e.preventDefault(); return false; });
+})();
+
+const PC = document.getElementById('pac-canvas');
+const PCTX = PC.getContext('2d');
+const TS = 16;   // tile size px
+const MW = 28;   // map width  (must stay even)
+const MH = 31;   // map height (must stay odd for maze gen)
+
+// ── PROCEDURAL MAZE GENERATOR ────────────────────────────────────────────────
+// Generates a valid Pac-Man maze with:
+//   - Guaranteed connectivity (every corridor reachable)
+//   - Symmetric left-right layout
+//   - Ghost house in centre
+//   - Power pellets in corners
+//   - Tunnel on both sides (row 14)
+function genMaze() {
+    // Work on half-width grid (cells are 2-wide for symmetry)
+    // Grid dimensions for recursive backtracker: 
+    const GW = 13, GH = 15; // half-width cells, height cells (each cell = 2 tiles)
+    // Each cell in GW×GH maps to tiles [r*2+1][c*2+1] in the full 28×31 map
+
+    // Start with all walls
+    const M = Array.from({length: MH}, () => Array(MW).fill(0));
+
+    // ── Carve corridors using iterative DFS ──────────────────────────────────
+    const visited = Array.from({length: GH}, () => Array(GW).fill(false));
+    function carve(gr, gc) {
+        visited[gr][gc] = true;
+        const dirs = [[0,1],[0,-1],[1,0],[-1,0]].sort(() => Math.random() - 0.5);
+        for (const [dr, dc] of dirs) {
+            const nr = gr + dr, nc = gc + dc;
+            if (nr < 0 || nr >= GH || nc < 0 || nc >= GW) continue;
+            if (visited[nr][nc]) continue;
+            // Carve wall between cells and the cell itself
+            const mr = gr * 2 + 1, mc = gc * 2 + 1;
+            const wr = mr + dr, wc = mc + dc;
+            const tr = nr * 2 + 1, tc = nc * 2 + 1;
+            M[mr][mc] = 1;
+            M[wr][wc] = 1;
+            M[tr][tc] = 1;
+            carve(nr, nc);
+        }
+    }
+    // Seed from top-left
+    carve(0, 0);
+
+    // ── Ensure all odd-indexed cells are carved (fix isolated spots) ─────────
+    for (let gr = 0; gr < GH; gr++) for (let gc = 0; gc < GW; gc++) {
+        const mr = gr * 2 + 1, mc = gc * 2 + 1;
+        if (mr < MH && mc < MW) M[mr][mc] = 1;
+    }
+
+    // ── Add extra loops for playability (remove ~30% of remaining walls) ─────
+    for (let r = 1; r < MH - 1; r += 2) {
+        for (let c = 2; c < MW / 2 - 1; c += 2) {
+            if (M[r][c] === 0 && Math.random() < 0.30) M[r][c] = 1;
+        }
+    }
+    for (let r = 2; r < MH - 1; r += 2) {
+        for (let c = 1; c < MW / 2; c += 2) {
+            if (M[r][c] === 0 && Math.random() < 0.30) M[r][c] = 1;
+        }
+    }
+
+    // ── Mirror left half to right half ───────────────────────────────────────
+    for (let r = 0; r < MH; r++) {
+        for (let c = 0; c < MW / 2; c++) {
+            M[r][MW - 1 - c] = M[r][c];
+        }
+    }
+
+    // ── Guarantee solid border ────────────────────────────────────────────────
+    for (let c = 0; c < MW; c++) { M[0][c] = 0; M[MH-1][c] = 0; }
+    for (let r = 0; r < MH; r++) { M[r][0] = 0; M[r][MW-1] = 0; }
+
+    // ── Ghost house (always in centre, rows 13–16, cols 11–16) ───────────────
+    // GHR1/GHR2/GHC1/GHC2 defined globally
+    for (let r = GHR1; r <= GHR2; r++) for (let c = GHC1; c <= GHC2; c++) M[r][c] = 0;
+    // Ghost house interior
+    for (let r = GHR1+1; r <= GHR2-1; r++) for (let c = GHC1+1; c <= GHC2-1; c++) M[r][c] = 4;
+    // Ghost house entrance (open top centre)
+    M[GHR1][13] = 1; M[GHR1][14] = 1;
+    // Corridors above ghost house
+    M[GHR1-1][13] = 1; M[GHR1-1][14] = 1;
+    M[GHR1-2][13] = 1; M[GHR1-2][14] = 1;
+
+    // ── Tunnel row (both sides open) ─────────────────────────────────────────
+    const TUNNEL_R = 14;
+    for (let c = 0; c < MW; c++) M[TUNNEL_R][c] = 1;
+    // Wall segment in the middle to block pac entering ghost house from tunnel
+    for (let c = GHC1; c <= GHC2; c++) M[TUNNEL_R][c] = 0;
+    M[TUNNEL_R][GHC1-1] = 1; M[TUNNEL_R][GHC2+1] = 1;
+
+    // ── Pac-Man spawn (bottom centre, open corridor) ──────────────────────────
+    const PAC_R = MH - 4;
+    for (let c = 11; c <= 16; c++) M[PAC_R][c] = 1;
+    M[PAC_R-1][13] = 1; M[PAC_R-1][14] = 1;
+    M[PAC_R+1][13] = 1; M[PAC_R+1][14] = 1;
+
+    // ── Power pellets in corners ──────────────────────────────────────────────
+    const corners = [[1,1],[1,MW-2],[MH-2,1],[MH-2,MW-2]];
+    for (const [r, c] of corners) {
+        // Ensure corner area is open
+        M[r][c] = 3;
+        if (M[r][c+1] === 0) M[r][c+1] = 1;
+        if (M[r+1] && M[r+1][c] === 0) M[r+1][c] = 1;
+        if (M[r-1] && M[r-1][c] === 0) M[r-1][c] = 1;
+    }
+    // Mirror corner power pellets
+    M[1][MW-2] = 3; M[MH-2][MW-2] = 3;
+
+    // ── Fill dots on all open corridor tiles ──────────────────────────────────
+    for (let r = 0; r < MH; r++) for (let c = 0; c < MW; c++) {
+        if (M[r][c] === 1) M[r][c] = 1; // dot
+    }
+
+    // ── Connectivity check + fix using flood fill ─────────────────────────────
+    // Find pac spawn cell
+    const startR = PAC_R, startC = 13;
+    if (M[startR][startC] === 0) M[startR][startC] = 1;
+
+    const reachable = Array.from({length: MH}, () => Array(MW).fill(false));
+    const queue = [[startR, startC]];
+    reachable[startR][startC] = true;
+    while (queue.length) {
+        const [r, c] = queue.shift();
+        for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+            const nr = r + dr, nc = c + dc;
+            if (nr < 0 || nr >= MH || nc < 0 || nc >= MW) continue;
+            if (reachable[nr][nc]) continue;
+            if (M[nr][nc] === 0) continue; // wall
+            reachable[nr][nc] = true;
+            queue.push([nr, nc]);
+        }
+    }
+    // Connect any unreachable corridor cells by carving toward nearest reachable
+    for (let r = 1; r < MH-1; r++) for (let c = 1; c < MW-1; c++) {
+        if (M[r][c] !== 0 && !reachable[r][c]) {
+            // Carve a path toward the nearest reachable neighbour
+            const nbs = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
+            for (const [nr, nc] of nbs) {
+                if (reachable[nr] && reachable[nr][nc]) {
+                    M[r][c] = 1;
+                    reachable[r][c] = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Flatten to 1D
+    return M.map(row => [...row]);
+}
+
+// ── GAME STATE ────────────────────────────────────────────────────────────────
+// Ghost house rows (must match genMaze)
+const GHR1 = 12, GHR2 = 15, GHC1 = 10, GHC2 = 17;
+let MAP = [], ORIG_MAP = [];
+const GCOLS = ['#ff4444','#ffaaff','#ffaa44','#44ffff'];
+let pac, ghosts, score, high, lives, state, dir, nextDir, dotsLeft, raf, scared, scaredTimer, lastT = 0;
+
+function getG()  { return getComputedStyle(document.documentElement).getPropertyValue('--g').trim()  || '#3fbf3f'; }
+function getGS() { return getComputedStyle(document.documentElement).getPropertyValue('--gs').trim() || '#6fdc6f'; }
+function getBg() { return getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#000'; }
+
+function pacNewMaze() {
+    document.getElementById('pac-new-btn').style.display = 'none';
+    MAP = genMaze();
+    ORIG_MAP = MAP.map(r => [...r]);
+    pacInit();
+    pacStart();
+}
+
+function pacInit() {
+    cancelAnimationFrame(raf);
+    MAP = ORIG_MAP.map(r => [...r]);
+
+    // Find a safe open corridor for pac (value must be 1 or 3, not wall or ghost house)
+    let pacR = MH - 4, pacC = 13;
+    const isSafe = (r, c) => r >= 0 && r < MH && c >= 0 && c < MW && (MAP[r][c] === 1 || MAP[r][c] === 3);
+    if (!isSafe(pacR, pacC)) {
+        outer: for (let r = MH - 2; r > MH / 2; r--) {
+            for (let c = MW / 2 - 4; c <= MW / 2 + 4; c++) {
+                if (isSafe(r, c)) { pacR = r; pacC = c; break outer; }
+            }
+        }
+    }
+    // Snap to centre of cell
+    const pacSpawnX = pacC + 0.5, pacSpawnY = pacR;
+
+    // Ghost 0 spawns above ghost house — find a real corridor tile (value 1 or 3)
+    let g0r = -1, g0c = 13;
+    for (let r = GHR1 - 1; r >= 1; r--) {
+        if (MAP[r][13] === 1 || MAP[r][13] === 3) { g0r = r; break; }
+    }
+    if (g0r < 0) g0r = 1; // fallback
+
+    pac = { x: pacSpawnX, y: pacSpawnY, dx: 0, dy: 0, mouth: 0, mouthDir: 1 };
+    ghosts = [
+        { x: g0c + 0.5, y: g0r, dx: 1, dy: 0, col: GCOLS[0], home: false, dead: false },
+        { x: 12.5, y: 13, dx:  0, dy: -1, col: GCOLS[1], home: true, dead: false, releaseAt: 120 },
+        { x: 13.5, y: 13, dx:  0, dy:  1, col: GCOLS[2], home: true, dead: false, releaseAt: 240 },
+        { x: 14.5, y: 13, dx: -1, dy:  0, col: GCOLS[3], home: true, dead: false, releaseAt: 360 },
+    ];
+    score = 0; lives = 3; dir = { x: 0, y: 0 }; nextDir = { x: 0, y: 0 };
+    scared = false; scaredTimer = 0; dotsLeft = 0;
+    ghosts._tick = 0;
+    for (let r = 0; r < MH; r++) for (let c = 0; c < MW; c++)
+        if (MAP[r][c] === 1 || MAP[r][c] === 3) dotsLeft++;
+    high = parseInt(localStorage.getItem('pac_high') || '0');
+    document.getElementById('pac-high').textContent = high;
+    document.getElementById('pac-score').textContent = 0;
+    document.getElementById('pac-lives').textContent = 3;
+    state = 'wait';
+}
+
+function pacCanMove(x, y, dx, dy) {
+    const nx = x + dx * 0.15, ny = y + dy * 0.15, m = 0.38;
+    for (let cr = Math.floor(ny - m); cr <= Math.floor(ny + m); cr++)
+        for (let cc = Math.floor(nx - m); cc <= Math.floor(nx + m); cc++) {
+            if (cr < 0 || cr >= MH || cc < 0 || cc >= MW) return false;
+            if (MAP[cr][cc] === 0) return false;
+        }
+    return true;
+}
+
+function pacUpdate() {
+    if (state !== 'play') return;
+    ghosts._tick++;
+    ghosts.forEach(g => { if (g.home && ghosts._tick >= (g.releaseAt || 0)) g.home = false; });
+    if (scaredTimer > 0) { scaredTimer--; if (!scaredTimer) scared = false; }
+
+    // Pac movement
+    if (pacCanMove(pac.x, pac.y, nextDir.x, nextDir.y)) { dir = { ...nextDir }; }
+    if (pacCanMove(pac.x, pac.y, dir.x, dir.y)) {
+        pac.x += dir.x * 0.12; pac.y += dir.y * 0.12;
+        // Tunnel wrap
+        if (pac.x < 0) pac.x = MW - 0.5;
+        if (pac.x > MW) pac.x = 0.5;
+    }
+    pac.mouth += 0.18 * pac.mouthDir;
+    if (pac.mouth > 0.95 || pac.mouth < 0.05) pac.mouthDir *= -1;
+
+    const [pr, pc2] = [Math.round(pac.y), Math.round(pac.x - 0.5)];
+    if (pr >= 0 && pr < MH && pc2 >= 0 && pc2 < MW) {
+        if (MAP[pr][pc2] === 1) { MAP[pr][pc2] = 2; score += 10; dotsLeft--; document.getElementById('pac-score').textContent = score; }
+        if (MAP[pr][pc2] === 3) {
+            MAP[pr][pc2] = 2; score += 50; dotsLeft--;
+            document.getElementById('pac-score').textContent = score;
+            scared = true; scaredTimer = 320; ghosts.forEach(g => { if (!g.dead) { g.dx *= -1; g.dy *= -1; } });
+        }
+    }
+    if (dotsLeft <= 0) { state = 'win'; pacDraw(); document.getElementById('pac-new-btn').style.display = ''; return; }
+
+    // Ghost movement
+    ghosts.forEach(g => {
+        if (g.home) { g.y += Math.sin(Date.now() / 400) * 0.04; return; }
+        if (g.dead) {
+            // Return to ghost house
+            const hr = 13, hc = 13;
+            const dr = hr - g.y, dc = hc - g.x;
+            if (Math.abs(dr) + Math.abs(dc) < 0.5) { g.dead = false; g.home = true; ghosts._tick = Math.max(0, ghosts._tick - 100); return; }
+            g.x += Math.sign(dc) * 0.12; g.y += Math.sign(dr) * 0.12; return;
+        }
+
+        const speed = scared ? 0.07 : 0.09;
+        let nx = g.x + g.dx * speed, ny = g.y + g.dy * speed;
+        // Tunnel wrap
+        if (nx < 0) nx = MW - 0.5; if (nx > MW) nx = 0.5;
+
+        const canFwd = () => {
+            const m = 0.38, tr = Math.round(ny), tc = Math.round(nx - 0.5);
+            for (let cr = Math.floor(ny - m); cr <= Math.floor(ny + m); cr++)
+                for (let cc = Math.floor(nx - m); cc <= Math.floor(nx + m); cc++) {
+                    if (cr < 0 || cr >= MH || cc < 0 || cc >= MW) return false;
+                    if (MAP[cr][cc] === 0) return false;
+                }
+            return true;
+        };
+
+        if (canFwd()) { g.x = nx; g.y = ny; return; }
+
+        // Turn: try perpendicular directions, bias toward pac
+        const perps = g.dx !== 0
+            ? [[0,-1],[0,1]].sort(() => (scared ? Math.random() - 0.5 : (pac.y < g.y ? -1 : 1)))
+            : [[-1,0],[1,0]].sort(() => (scared ? Math.random() - 0.5 : (pac.x < g.x ? -1 : 1)));
+        let turned = false;
+        for (const [tdr, tdc] of perps) {
+            const tx = g.x + tdc * speed, ty = g.y + tdr * speed;
+            const m = 0.38;
+            let ok = true;
+            for (let cr = Math.floor(ty - m); cr <= Math.floor(ty + m) && ok; cr++)
+                for (let cc = Math.floor(tx - m); cc <= Math.floor(tx + m) && ok; cc++) {
+                    if (cr < 0 || cr >= MH || cc < 0 || cc >= MW) { ok = false; break; }
+                    if (MAP[cr][cc] === 0) ok = false;
+                }
+            if (ok) { g.dx = tdc; g.dy = tdr; g.x = tx; g.y = ty; turned = true; break; }
+        }
+        if (!turned) { g.dx *= -1; g.dy *= -1; }
+    });
+
+    // Collision
+    ghosts.forEach(g => {
+        if (g.dead || g.home) return;
+        if (Math.abs(g.x - pac.x) < 0.7 && Math.abs(g.y - pac.y) < 0.7) {
+            if (scared) {
+                g.dead = true; score += 200;
+                document.getElementById('pac-score').textContent = score;
+            } else {
+                lives--;
+                document.getElementById('pac-lives').textContent = lives;
+                if (lives <= 0) {
+                    state = 'lose';
+                    if (score > high) { high = score; localStorage.setItem('pac_high', high); document.getElementById('pac-high').textContent = high; }
+                    document.getElementById('pac-new-btn').style.display = '';
+                } else {
+                    // Reset positions
+                    pac.x = pacSpawnX || 13.5; pac.y = pacSpawnY || MH - 4;
+                    ghosts.forEach((gh, i) => { if (i === 0) { gh.x = 13.5; gh.y = 5; } else { gh.x = 12.5 + i; gh.y = 13; gh.home = true; } });
+                    state = 'wait';
+                }
+            }
+        }
+    });
+}
+
+function pacDraw() {
+    const bg = getBg(), g = getG(), gs = getGS();
+    PCTX.fillStyle = bg;
+    PCTX.fillRect(0, 0, PC.width, PC.height);
+
+    for (let r = 0; r < MH; r++) for (let c = 0; c < MW; c++) {
+        const tx = c * TS, ty = r * TS, t = MAP[r][c];
+        if (t === 0) {
+            PCTX.fillStyle = '#00008b';
+            PCTX.fillRect(tx, ty, TS, TS);
+            PCTX.strokeStyle = '#0000cd';
+            PCTX.lineWidth = 1;
+            // Draw walls with borders
+            const adj = [[0,-1],[0,1],[-1,0],[1,0]];
+            for (const [dr,dc] of adj) {
+                const nr = r+dr, nc = c+dc;
+                if (nr<0||nr>=MH||nc<0||nc>=MW||MAP[nr][nc]!==0) continue;
+            }
+            PCTX.strokeStyle = '#1a1aff';
+            PCTX.strokeRect(tx + 0.5, ty + 0.5, TS - 1, TS - 1);
+        } else if (t === 4) {
+            // Ghost house interior
+            PCTX.fillStyle = '#220044';
+            PCTX.fillRect(tx, ty, TS, TS);
+            PCTX.strokeStyle = '#ff44ff';
+            PCTX.lineWidth = 0.5;
+            PCTX.strokeRect(tx + 0.5, ty + 0.5, TS - 1, TS - 1);
+        } else if (t === 1) {
+            PCTX.fillStyle = '#00004a';
+            PCTX.fillRect(tx, ty, TS, TS);
+            PCTX.fillStyle = '#ffffcc';
+            PCTX.beginPath();
+            PCTX.arc(tx + TS / 2, ty + TS / 2, 1.5, 0, Math.PI * 2);
+            PCTX.fill();
+        } else if (t === 3) {
+            PCTX.fillStyle = '#00004a';
+            PCTX.fillRect(tx, ty, TS, TS);
+            PCTX.fillStyle = g;
+            PCTX.beginPath();
+            PCTX.arc(tx + TS / 2, ty + TS / 2, 4.5, 0, Math.PI * 2);
+            PCTX.fill();
+        } else {
+            PCTX.fillStyle = '#00004a';
+            PCTX.fillRect(tx, ty, TS, TS);
+        }
+    }
+
+    // Pac-Man
+    const px = pac.x * TS, py = pac.y * TS;
+    const ang = pac.mouth * Math.PI * 0.35;
+    const facingAngle = pac.dx < 0 ? Math.PI : pac.dx > 0 ? 0 : pac.dy < 0 ? -Math.PI/2 : Math.PI/2;
+    PCTX.fillStyle = '#ffff00';
+    PCTX.beginPath();
+    PCTX.moveTo(px, py);
+    PCTX.arc(px, py, TS * 0.46, facingAngle + ang, facingAngle + Math.PI * 2 - ang);
+    PCTX.closePath(); PCTX.fill();
+
+    // Ghosts
+    ghosts.forEach(g => {
+        if (g.home && Math.random() < 0.5) return; // flicker when in house
+        const gx = g.x * TS, gy = g.y * TS, gr2 = TS * 0.45;
+        PCTX.fillStyle = g.dead ? '#444' : scared ? (scaredTimer < 80 && Math.floor(Date.now()/200)%2 ? '#fff' : '#0000cc') : g.col;
+        PCTX.beginPath();
+        PCTX.arc(gx, gy - gr2 * 0.1, gr2, Math.PI, 0);
+        PCTX.lineTo(gx + gr2, gy + gr2);
+        for (let i = 0; i < 3; i++) {
+            const wx = (gx + gr2) - (i + 0.5) * (gr2 * 2 / 3);
+            PCTX.quadraticCurveTo(wx + gr2 / 3, gy + gr2 * 0.5, wx, gy + gr2);
+            PCTX.quadraticCurveTo(wx - gr2 / 3, gy + gr2 * 1.5, wx - gr2 * 0.67, gy + gr2);
+        }
+        PCTX.lineTo(gx - gr2, gy + gr2); PCTX.closePath(); PCTX.fill();
+        // Eyes
+        if (!g.dead && !scared) {
+            PCTX.fillStyle = '#fff';
+            PCTX.beginPath(); PCTX.ellipse(gx - gr2*0.3, gy - gr2*0.25, gr2*0.28, gr2*0.35, 0, 0, Math.PI*2); PCTX.fill();
+            PCTX.beginPath(); PCTX.ellipse(gx + gr2*0.3, gy - gr2*0.25, gr2*0.28, gr2*0.35, 0, 0, Math.PI*2); PCTX.fill();
+            PCTX.fillStyle = '#00f';
+            PCTX.beginPath(); PCTX.arc(gx - gr2*0.3 + g.dx*gr2*0.15, gy - gr2*0.25 + g.dy*gr2*0.15, gr2*0.14, 0, Math.PI*2); PCTX.fill();
+            PCTX.beginPath(); PCTX.arc(gx + gr2*0.3 + g.dx*gr2*0.15, gy - gr2*0.25 + g.dy*gr2*0.15, gr2*0.14, 0, Math.PI*2); PCTX.fill();
+        }
+    });
+
+    // Overlay messages
+    if (state === 'wait') {
+        PCTX.fillStyle = 'rgba(0,0,0,0.45)';
+        PCTX.fillRect(0, PC.height/2 - 22, PC.width, 40);
+        PCTX.fillStyle = '#ffff00';
+        PCTX.font = 'bold 14px monospace';
+        PCTX.textAlign = 'center';
+        PCTX.fillText('CLICK TO START', PC.width/2, PC.height/2 + 5);
+    } else if (state === 'lose') {
+        PCTX.fillStyle = 'rgba(0,0,0,0.6)';
+        PCTX.fillRect(0, PC.height/2 - 30, PC.width, 56);
+        PCTX.fillStyle = '#ff4444';
+        PCTX.font = 'bold 16px monospace';
+        PCTX.textAlign = 'center';
+        PCTX.fillText('GAME OVER', PC.width/2, PC.height/2);
+        PCTX.fillStyle = '#ffff00';
+        PCTX.font = '11px monospace';
+        PCTX.fillText('NEW MAZE ↓', PC.width/2, PC.height/2 + 18);
+    } else if (state === 'win') {
+        PCTX.fillStyle = 'rgba(0,0,0,0.6)';
+        PCTX.fillRect(0, PC.height/2 - 30, PC.width, 56);
+        PCTX.fillStyle = '#00ff88';
+        PCTX.font = 'bold 16px monospace';
+        PCTX.textAlign = 'center';
+        PCTX.fillText('YOU WIN!', PC.width/2, PC.height/2);
+        PCTX.fillStyle = '#ffff00';
+        PCTX.font = '11px monospace';
+        PCTX.fillText('NEW MAZE ↓', PC.width/2, PC.height/2 + 18);
+    }
+}
+
+function pacStart() { if (state === 'wait' || state === 'lose') { if (state === 'lose') return; state = 'play'; } }
+function pacLoop(ts) {
+    raf = requestAnimationFrame(pacLoop);
+    const dt = ts - lastT; lastT = ts;
+    if (dt > 100) return; // tab was hidden
+    pacUpdate();
+    pacDraw();
+}
+
+// Input
+const KEYS = { ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1],
+               a:[-1,0], d:[1,0], w:[0,-1], s:[0,1] };
+document.addEventListener('keydown', e => {
+    const d = KEYS[e.key];
+    if (d) { nextDir = { x: d[0], y: d[1] }; e.preventDefault(); }
+});
+let touchStart = null;
+PC.addEventListener('touchstart', e => { touchStart = e.touches[0]; e.preventDefault(); }, { passive: false });
+PC.addEventListener('touchend', e => {
+    if (!touchStart) return;
+    const dx = e.changedTouches[0].clientX - touchStart.clientX;
+    const dy = e.changedTouches[0].clientY - touchStart.clientY;
+    if (Math.abs(dx) > Math.abs(dy)) nextDir = { x: Math.sign(dx), y: 0 };
+    else nextDir = { x: 0, y: Math.sign(dy) };
+    touchStart = null;
+}, { passive: false });
+PC.addEventListener('click', () => {
+    if (state === 'wait') { state = 'play'; }
+});
+
+window.onload = () => { pacNewMaze(); };
+
+</script>
+</body>
+</html>

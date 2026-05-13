@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MEMORY MATCH</title>
+<style>
+:root{--g:#3fbf3f;--gs:#6fdc6f;--gd:#2a9f2a;--r:#ff4444;--gold:#ffcc00;--bg:#000;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--g);font-family:'Courier New',monospace;display:flex;flex-direction:column;min-height:100vh;user-select:none;}
+#hdr{border-bottom:2px solid var(--g);box-shadow:0 0 14px color-mix(in srgb,var(--g) 60%,transparent);padding:10px 24px;display:flex;align-items:center;flex-shrink:0;background:var(--bg);}
+#hdr-title{font-size:20px;font-weight:bold;letter-spacing:5px;text-shadow:0 0 10px var(--g);flex:1;text-align:center;}
+.back-btn{padding:5px 14px;border:1px solid var(--g);background:transparent;color:var(--g);font-size:10px;letter-spacing:2px;cursor:pointer;}
+.back-btn:hover{background:var(--g);color:#000;}
+#gw{flex:1;display:flex;justify-content:center;align-items:flex-start;padding:14px 16px 24px;}
+#go{position:relative;width:960px;height:560px;border:2px solid var(--g);box-shadow:0 0 24px color-mix(in srgb,var(--g) 20%,transparent);flex-shrink:0;overflow:hidden;background:#000;}
+
+</style>
+</head>
+<body>
+<div id="hdr">
+  <button class="back-btn" onclick="(function(){if(window.opener||window.history.length<=1)window.close();else location.href='websites.html';})()" >&#8592; BACK</button>
+  <div style="flex:1;text-align:center;"><div id="hdr-title">MEMORY MATCH</div><div style="font-size:9px;letter-spacing:2px;color:var(--gs);">// FIND THE PAIRS //</div></div>
+  <div style="width:90px;display:flex;justify-content:flex-end;"><button onclick="_goFS()" style="background:transparent;border:1px solid #2a4a2a;color:#3a6a3a;font-size:10px;padding:4px 8px;cursor:pointer;font-family:monospace;">&#9974; FULL</button></div>
+</div>
+<div id="gw"><div id="go">
+<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#020a02;">
+  <div style="display:flex;gap:30px;align-items:center;">
+    <div style="text-align:center;"><div style="font-size:8px;letter-spacing:2px;color:#2a5a2a;">MOVES</div><div id="mm-moves" style="font-size:20px;color:var(--g);font-weight:bold;">0</div></div>
+    <div style="text-align:center;"><div style="font-size:8px;letter-spacing:2px;color:#2a5a2a;">PAIRS</div><div id="mm-pairs" style="font-size:20px;color:var(--gold,#fc0);font-weight:bold;">0/8</div></div>
+    <div style="text-align:center;"><div style="font-size:8px;letter-spacing:2px;color:#2a5a2a;">TIME</div><div id="mm-time" style="font-size:20px;color:#4af;font-weight:bold;">0:00</div></div>
+    <div style="display:flex;gap:6px;">
+      <button onclick="mmStart(4)" style="padding:4px 10px;border:1px solid #44ff44;background:transparent;color:#44ff44;font-family:monospace;font-size:8px;cursor:pointer;letter-spacing:1px;">4×4</button>
+      <button onclick="mmStart(5)" style="padding:4px 10px;border:1px solid var(--gold,#fc0);background:transparent;color:var(--gold,#fc0);font-family:monospace;font-size:8px;cursor:pointer;letter-spacing:1px;">5×4</button>
+      <button onclick="mmStart(6)" style="padding:4px 10px;border:1px solid #ff4444;background:transparent;color:#ff4444;font-family:monospace;font-size:8px;cursor:pointer;letter-spacing:1px;">6×6</button>
+    </div>
+  </div>
+  <div id="mm-grid" style="display:grid;gap:8px;"></div>
+  <div id="mm-msg" style="font-size:10px;letter-spacing:3px;color:var(--gold,#fc0);min-height:18px;"></div>
+</div>
+</div></div>
+<script>
+(function(){
+  var t=JSON.parse(localStorage.getItem('scpLastTheme')||localStorage.getItem('scpTheme')||'{}');
+  var bg=t.bg||'#000000', ac=t.accent||'#3fbf3f';
+  document.documentElement.style.setProperty('--g', ac);
+  document.documentElement.style.setProperty('--bg', bg);
+  function lighten(hex,amt){
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    r=Math.min(255,r+amt);g=Math.min(255,g+amt);b=Math.min(255,b+amt);
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  document.documentElement.style.setProperty('--gs', lighten(ac,50));
+  document.documentElement.style.setProperty('--gd', lighten(ac,-30));
+  document.body.style.backgroundColor=bg;
+  document.getElementById('hdr').style.backgroundColor=bg;
+  // Disable right-click on all game pages
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; });
+  // Disable right-click drag image ghost
+  document.addEventListener('dragstart', function(e){ e.preventDefault(); return false; });
+})();
+function _goFS(){const el=document.getElementById('go');if(!document.fullscreenElement)el.requestFullscreen().catch(()=>{});else document.exitFullscreen().catch(()=>{});}
+document.addEventListener('keydown',e=>{if(e.code==='KeyF')_goFS();});
+document.addEventListener('fullscreenchange',()=>{const el=document.getElementById('go');if(document.fullscreenElement===el){const s=Math.min(screen.width/960,screen.height/560);el.style.cssText='transform:scale('+s+');transform-origin:top left;position:fixed;top:'+Math.floor((screen.height-560*s)/2)+'px;left:'+Math.floor((screen.width-960*s)/2)+'px;z-index:9999;';}else{el.style.cssText='';}});
+
+const EMOJIS=['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🦁','🐮','🐷','🐸','🐵','🦋','🐬','🦄','🐙','🦞','🦀','🦩','🦚','🦜','🦉','🐧','🐦','🦆','🦅','🐺','🦝'];
+let cards=[],flipped=[],matched=new Set(),moves=0,pairs=0,totalPairs=0,canFlip=true,timerS=0,timerInt=null,gridSize=4;
+
+function mmStart(cols){
+  gridSize=cols;
+  clearInterval(timerInt);timerS=0;moves=0;pairs=0;flipped=[];matched=new Set();canFlip=true;
+  document.getElementById('mm-moves').textContent='0';
+  document.getElementById('mm-time').textContent='0:00';
+  document.getElementById('mm-msg').textContent='';
+  const rows=cols===6?6:4;
+  totalPairs=(cols*rows)/2;
+  document.getElementById('mm-pairs').textContent='0/'+totalPairs;
+  const emojis=EMOJIS.slice(0,totalPairs);
+  cards=[...emojis,...emojis].sort(()=>Math.random()-0.5);
+  const grid=document.getElementById('mm-grid');
+  const sz=cols===6?70:cols===5?76:88;
+  grid.style.gridTemplateColumns='repeat('+cols+','+sz+'px)';
+  grid.innerHTML='';
+  cards.forEach((e,i)=>{
+    const card=document.createElement('div');
+    card.style.cssText='width:'+sz+'px;height:'+sz+'px;cursor:pointer;position:relative;transition:transform .3s;transform-style:preserve-3d;';
+    card.innerHTML=`
+      <div class="mm-front" style="position:absolute;inset:0;background:linear-gradient(135deg,#0a1a0a,#051005);border:1px solid #1a3a1a;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:2px;color:#1a3a1a;backface-visibility:hidden;">?</div>
+      <div class="mm-back" style="position:absolute;inset:0;background:linear-gradient(135deg,#0e2010,#061508);border:2px solid var(--g);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:${sz===70?28:sz===76?32:36}px;transform:rotateY(180deg);backface-visibility:hidden;">${e}</div>
+    `;
+    card.dataset.idx=i;card.onclick=()=>mmFlip(i);
+    grid.appendChild(card);
+  });
+}
+
+function mmFlip(idx){
+  if(!canFlip)return;
+  if(matched.has(idx)||flipped.includes(idx))return;
+  if(flipped.length>=2)return;
+  if(!timerInt&&flipped.length===0){timerInt=setInterval(()=>{timerS++;const m=Math.floor(timerS/60),s=timerS%60;document.getElementById('mm-time').textContent=m+':'+(s<10?'0':'')+s;},1000);}
+  flipped.push(idx);
+  const card=document.getElementById('mm-grid').children[idx];
+  card.style.transform='rotateY(180deg)';
+  card.style.border='none';
+  if(flipped.length===2){
+    moves++;document.getElementById('mm-moves').textContent=moves;
+    canFlip=false;
+    setTimeout(()=>{
+      const[a,b]=flipped;
+      if(cards[a]===cards[b]){
+        matched.add(a);matched.add(b);pairs++;
+        document.getElementById('mm-pairs').textContent=pairs+'/'+totalPairs;
+        // Glow matched cards
+        [a,b].forEach(i=>{const c=document.getElementById('mm-grid').children[i];c.style.filter='drop-shadow(0 0 10px var(--g))';c.style.pointerEvents='none';});
+        if(pairs===totalPairs){
+          clearInterval(timerInt);
+          document.getElementById('mm-msg').textContent='✓ COMPLETE in '+document.getElementById('mm-time').textContent+' · '+moves+' moves!';
+        }
+      } else {
+        [a,b].forEach(i=>{const c=document.getElementById('mm-grid').children[i];c.style.transform='rotateY(0)';});
+      }
+      flipped=[];canFlip=true;
+    },800);
+  }
+}
+mmStart(4);
+
+</script>
+</body>
+</html>

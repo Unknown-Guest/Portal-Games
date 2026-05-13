@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TANK BATTLE</title>
+<style>
+:root{--g:#3fbf3f;--gs:#6fdc6f;--gd:#2a9f2a;--r:#ff4444;--gold:#ffcc00;--bg:#000;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--g);font-family:'Courier New',monospace;display:flex;flex-direction:column;min-height:100vh;user-select:none;}
+#hdr{border-bottom:2px solid var(--g);box-shadow:0 0 14px color-mix(in srgb,var(--g) 60%,transparent);padding:10px 24px;display:flex;align-items:center;flex-shrink:0;background:var(--bg);}
+#hdr-title{font-size:20px;font-weight:bold;letter-spacing:5px;text-shadow:0 0 10px var(--g);flex:1;text-align:center;}
+.back-btn{padding:5px 14px;border:1px solid var(--g);background:transparent;color:var(--g);font-size:10px;letter-spacing:2px;cursor:pointer;}
+.back-btn:hover{background:var(--g);color:#000;}
+#gw{flex:1;display:flex;justify-content:center;align-items:flex-start;padding:14px 16px 24px;}
+#go{position:relative;width:960px;height:560px;border:2px solid var(--g);box-shadow:0 0 24px color-mix(in srgb,var(--g) 20%,transparent);flex-shrink:0;overflow:hidden;background:#000;}
+
+</style>
+</head>
+<body>
+<div id="hdr">
+  <button class="back-btn" onclick="(function(){if(window.opener||window.history.length<=1)window.close();else location.href='websites.html';})()" >&#8592; BACK</button>
+  <div style="flex:1;text-align:center;"><div id="hdr-title">TANK BATTLE</div><div style="font-size:9px;letter-spacing:2px;color:var(--gs);">// 2 PLAYER LOCAL //</div></div>
+  <div style="width:90px;display:flex;justify-content:flex-end;"><button onclick="_goFS()" style="background:transparent;border:1px solid #2a4a2a;color:#3a6a3a;font-size:10px;padding:4px 8px;cursor:pointer;font-family:monospace;">&#9974; FULL</button></div>
+</div>
+<div id="gw"><div id="go"><canvas id="c" width="960" height="560"></canvas></div></div>
+<script>
+(function(){
+  var t=JSON.parse(localStorage.getItem('scpLastTheme')||localStorage.getItem('scpTheme')||'{}');
+  var bg=t.bg||'#000000', ac=t.accent||'#3fbf3f';
+  document.documentElement.style.setProperty('--g', ac);
+  document.documentElement.style.setProperty('--bg', bg);
+  function lighten(hex,amt){
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    r=Math.min(255,r+amt);g=Math.min(255,g+amt);b=Math.min(255,b+amt);
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  document.documentElement.style.setProperty('--gs', lighten(ac,50));
+  document.documentElement.style.setProperty('--gd', lighten(ac,-30));
+  document.body.style.backgroundColor=bg;
+  document.getElementById('hdr').style.backgroundColor=bg;
+  // Disable right-click on all game pages
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; });
+  // Disable right-click drag image ghost
+  document.addEventListener('dragstart', function(e){ e.preventDefault(); return false; });
+})();
+function _goFS(){const el=document.getElementById('go');if(!document.fullscreenElement)el.requestFullscreen().catch(()=>{});else document.exitFullscreen().catch(()=>{});}
+document.addEventListener('keydown',e=>{if(e.code==='KeyF')_goFS();});
+document.addEventListener('fullscreenchange',()=>{const el=document.getElementById('go');if(document.fullscreenElement===el){const s=Math.min(screen.width/960,screen.height/560);el.style.cssText='transform:scale('+s+');transform-origin:top left;position:fixed;top:'+Math.floor((screen.height-560*s)/2)+'px;left:'+Math.floor((screen.width-960*s)/2)+'px;z-index:9999;';}else{el.style.cssText='';}});
+
+const cv=document.getElementById('c'),cx=cv.getContext('2d');
+const W=960,H=560,KS={};
+let tanks,bullets,walls,particles,gameOn=false,frame=0,scores=[0,0];
+const CFG=[
+  {keys:{u:'KeyW',d:'KeyS',l:'KeyA',r:'KeyD',fire:'KeyF'},col:'#44ff44',name:'P1',x:100,y:H/2,angle:0},
+  {keys:{u:'ArrowUp',d:'ArrowDown',l:'ArrowLeft',r:'ArrowRight',fire:'Enter'},col:'#ff4444',name:'P2',x:W-100,y:H/2,angle:Math.PI},
+];
+function init(){
+  tanks=CFG.map(c=>({...c,hp:5,maxHp:5,cooldown:0,alive:true}));
+  bullets=[];particles=[];frame=0;
+  walls=[[W/2-80,H/2-120,16,240],[W/4,H/4,16,200],[W*3/4-8,H/4,16,200],[W/4,H*3/4-100,200,16],[W*3/4-100,H*3/4-8,200,16],[W/2-8,80,16,120],[W/2-8,H-200,16,120]];
+  gameOn=true;
+}
+function tick(){
+  if(!gameOn)return;frame++;
+  tanks.forEach((t,i)=>{
+    if(!t.alive)return;
+    if(KS[t.keys.l])t.angle-=0.05;
+    if(KS[t.keys.r])t.angle+=0.05;
+    let nx=t.x,ny=t.y;
+    if(KS[t.keys.u]){nx+=Math.cos(t.angle)*3;ny+=Math.sin(t.angle)*3;}
+    if(KS[t.keys.d]){nx-=Math.cos(t.angle)*2;ny-=Math.sin(t.angle)*2;}
+    nx=Math.max(20,Math.min(W-20,nx));ny=Math.max(20,Math.min(H-20,ny));
+    let blocked=false;
+    walls.forEach(w=>{if(nx>w[0]-16&&nx<w[0]+w[2]+16&&ny>w[1]-16&&ny<w[1]+w[3]+16)blocked=true;});
+    if(!blocked){t.x=nx;t.y=ny;}
+    if(t.cooldown>0)t.cooldown--;
+    if(KS[t.keys.fire]&&t.cooldown<=0){
+      bullets.push({x:t.x+Math.cos(t.angle)*24,y:t.y+Math.sin(t.angle)*24,vx:Math.cos(t.angle)*10,vy:Math.sin(t.angle)*10,owner:i,life:80});
+      t.cooldown=20;
+    }
+  });
+  bullets=bullets.filter(b=>{
+    b.x+=b.vx;b.y+=b.vy;b.life--;
+    if(b.x<0||b.x>W||b.y<0||b.y>H)return false;
+    let bounced=false;
+    walls.forEach(w=>{if(b.x>w[0]&&b.x<w[0]+w[2]&&b.y>w[1]-4&&b.y<w[1]+w[3]+4){b.vy*=-1;bounced=true;}if(b.y>w[1]&&b.y<w[1]+w[3]&&b.x>w[0]-4&&b.x<w[0]+w[2]+4){b.vx*=-1;bounced=true;}});
+    if(bounced)b.life=Math.min(b.life,40);
+    tanks.forEach((t,i)=>{if(!t.alive||i===b.owner)return;if(Math.hypot(b.x-t.x,b.y-t.y)<18){t.hp--;for(let p=0;p<8;p++)particles.push({x:b.x,y:b.y,vx:(Math.random()-0.5)*5,vy:(Math.random()-0.5)*5,l:20,col:t.col});if(t.hp<=0){t.alive=false;scores[b.owner]++;gameOn=false;}}});
+    return b.life>0;
+  });
+  particles=particles.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.l--;return p.l>0;});
+  draw();
+}
+function drawTank(t){
+  cx.save();cx.translate(t.x,t.y);cx.rotate(t.angle);
+  // Body
+  const g=cx.createLinearGradient(-20,-14,20,14);g.addColorStop(0,t.col+'cc');g.addColorStop(1,t.col+'66');
+  cx.fillStyle=g;cx.beginPath();cx.roundRect(-18,-14,36,28,4);cx.fill();
+  cx.strokeStyle=t.col;cx.lineWidth=2;cx.strokeRect(-18,-14,36,28);
+  // Tracks
+  cx.fillStyle='rgba(0,0,0,0.6)';cx.fillRect(-20,-16,40,5);cx.fillRect(-20,11,40,5);
+  // Turret
+  cx.fillStyle=t.col;cx.beginPath();cx.arc(0,0,10,0,Math.PI*2);cx.fill();
+  // Barrel
+  cx.fillStyle=t.col;cx.fillRect(8,-3,16,6);
+  // HP bar
+  cx.rotate(-t.angle);cx.fillStyle='rgba(0,0,0,0.6)';cx.fillRect(-18,-26,36,5);
+  cx.fillStyle=t.hp>3?'#3f3':t.hp>1?'#fa0':'#f33';cx.fillRect(-18,-26,36*(t.hp/t.maxHp),5);
+  // Name
+  cx.fillStyle=t.col;cx.font='bold 9px Courier New';cx.textAlign='center';cx.fillText(t.name,0,-30);
+  cx.restore();
+}
+function draw(){
+  cx.fillStyle='#0a0a0a';cx.fillRect(0,0,W,H);
+  // Floor pattern
+  for(let x=0;x<W;x+=40)for(let y=0;y<H;y+=40){cx.fillStyle=((x+y)%80===0)?'#0f0f0f':'#0c0c0c';cx.fillRect(x,y,40,40);}
+  // Walls
+  walls.forEach(w=>{
+    const wg=cx.createLinearGradient(w[0],w[1],w[0]+w[2],w[1]+w[3]);wg.addColorStop(0,'#3a3a3a');wg.addColorStop(1,'#1a1a1a');
+    cx.fillStyle=wg;cx.fillRect(w[0],w[1],w[2],w[3]);
+    cx.strokeStyle='#555';cx.lineWidth=1;cx.strokeRect(w[0],w[1],w[2],w[3]);
+  });
+  tanks.forEach(t=>{if(t.alive)drawTank(t);});
+  bullets.forEach(b=>{
+    cx.fillStyle='#ff0';cx.shadowColor='#ff0';cx.shadowBlur=6;
+    cx.beginPath();cx.arc(b.x,b.y,4,0,Math.PI*2);cx.fill();cx.shadowBlur=0;
+  });
+  particles.forEach(p=>{cx.globalAlpha=p.l/20;cx.fillStyle=p.col;cx.beginPath();cx.arc(p.x,p.y,3,0,Math.PI*2);cx.fill();});cx.globalAlpha=1;
+  // HUD
+  cx.fillStyle='rgba(0,0,0,0.7)';cx.fillRect(0,0,W,22);
+  CFG.forEach((c,i)=>{cx.fillStyle=c.col;cx.font='bold 12px Courier New';cx.textAlign=i===0?'left':'right';cx.fillText(c.name+': '+scores[i]+' kills',i===0?10:W-10,15);});
+  cx.fillStyle='rgba(255,255,255,0.2)';cx.font='9px Courier New';cx.textAlign='center';cx.fillText('P1: WASD+F  ·  P2: ARROWS+ENTER',W/2,15);
+  if(!gameOn&&frame>0){
+    const winner=tanks.find(t=>!t.alive);const wname=winner?CFG.find(c=>c.col!==winner.col).name:'';
+    cx.fillStyle='rgba(0,0,0,0.85)';cx.fillRect(W/2-180,H/2-55,360,110);cx.strokeStyle='#ff0';cx.lineWidth=2;cx.strokeRect(W/2-180,H/2-55,360,110);
+    cx.fillStyle='#ff0';cx.font='bold 26px Courier New';cx.textAlign='center';cx.fillText(wname+' WINS!',W/2,H/2-14);
+    cx.fillStyle='#3f3';cx.font='11px Courier New';cx.fillText('KILLS — P1: '+scores[0]+'  P2: '+scores[1],W/2,H/2+14);
+    cx.fillStyle='#2a5a2a';cx.fillText('SPACE TO PLAY AGAIN',W/2,H/2+38);
+  } else if(!gameOn){
+    cx.fillStyle='rgba(0,0,0,0.85)';cx.fillRect(W/2-200,H/2-55,400,110);cx.strokeStyle='var(--g)';cx.lineWidth=2;cx.strokeRect(W/2-200,H/2-55,400,110);cx.fillStyle='#3f3';cx.font='bold 26px Courier New';cx.textAlign='center';cx.fillText('TANK BATTLE',W/2,H/2-14);cx.fillStyle='#2a5a2a';cx.font='11px Courier New';cx.fillText('2 PLAYERS  ·  PRESS SPACE',W/2,H/2+18);
+  }
+}
+window.addEventListener('keydown',e=>{KS[e.code]=true;if(e.code==='Space'){if(!gameOn)init();}e.preventDefault();});
+window.addEventListener('keyup',e=>{KS[e.code]=false;});
+setInterval(tick,1000/60);draw();
+
+</script>
+</body>
+</html>
