@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Portal — Error</title>
+<meta charset="utf-8">
+<script>
+/* Apply theme before paint */
+(function(){
+  var t=JSON.parse(localStorage.getItem('scpLastTheme')||localStorage.getItem('scpTheme')||'{}');
+  var h=/^#[0-9a-fA-F]{6}$/;
+  if(t.bg&&h.test(t.bg))document.documentElement.style.setProperty('--bg',t.bg);
+  if(t.accent&&h.test(t.accent)){
+    document.documentElement.style.setProperty('--g',t.accent);
+  }
+})();
+</script>
+<style>
+  :root { --g: #3fbf3f; --bg: #000; --r: #ff3f3f; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--g);
+    font-family: monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    user-select: none;
+  }
+
+  #error-code {
+    font-size: clamp(80px, 18vw, 160px);
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    color: var(--g);
+    text-shadow: 0 0 40px var(--g), 0 0 80px color-mix(in srgb, var(--g) 30%, transparent);
+    line-height: 1;
+    animation: flicker 6s infinite;
+  }
+
+  @keyframes flicker {
+    0%,95%,100% { opacity: 1; }
+    96% { opacity: 0.4; }
+    97% { opacity: 1; }
+    98% { opacity: 0.2; }
+    99% { opacity: 1; }
+  }
+
+  #error-line {
+    width: min(500px, 90vw);
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--g), transparent);
+    margin: 16px 0 24px;
+    opacity: 0.4;
+  }
+
+  #error-title {
+    font-size: clamp(14px, 3vw, 22px);
+    letter-spacing: 0.3em;
+    color: var(--g);
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  #error-msg {
+    font-size: clamp(10px, 1.8vw, 13px);
+    letter-spacing: 0.15em;
+    color: color-mix(in srgb, var(--g) 50%, transparent);
+    text-align: center;
+    max-width: 440px;
+    line-height: 1.8;
+    padding: 0 20px;
+    margin-bottom: 36px;
+  }
+
+  #error-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .err-btn {
+    background: transparent;
+    border: 1px solid var(--g);
+    color: var(--g);
+    padding: 10px 24px;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    font-family: monospace;
+    text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+  }
+  .err-btn:hover {
+    background: var(--g);
+    color: var(--bg, #000);
+  }
+  .err-btn.secondary {
+    border-color: color-mix(in srgb, var(--g) 35%, transparent);
+    color: color-mix(in srgb, var(--g) 55%, transparent);
+  }
+  .err-btn.secondary:hover {
+    border-color: var(--g);
+    background: transparent;
+    color: var(--g);
+  }
+
+  #error-footer {
+    position: fixed;
+    bottom: 16px;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: color-mix(in srgb, var(--g) 20%, transparent);
+  }
+</style>
+</head>
+<body>
+
+<div id="error-code">404</div>
+<div id="error-line"></div>
+<div id="error-title">PAGE NOT FOUND</div>
+<div id="error-msg">The page you're looking for doesn't exist, has been moved, or you don't have permission to access it.</div>
+
+<div id="error-actions">
+  <a class="err-btn" href="home.html">&#8592; GO HOME</a>
+  <a class="err-btn secondary" onclick="history.back();return false;" href="#">GO BACK</a>
+</div>
+
+<div id="error-footer">PORTAL &nbsp;&#47;&#47;&nbsp; ERROR</div>
+
+<script>
+// Read ?code= and ?msg= from URL params to customise the error
+(function(){
+  const p = new URLSearchParams(window.location.search);
+  const code  = p.get('code');
+  const title = p.get('title');
+  const msg   = p.get('msg');
+
+  const ERRORS = {
+    '403': { title: 'ACCESS DENIED',      msg: "You don't have permission to view this page." },
+    '404': { title: 'PAGE NOT FOUND',     msg: "The page you're looking for doesn't exist or has been moved." },
+    '500': { title: 'SERVER ERROR',       msg: 'Something went wrong on our end. Try again in a moment.' },
+    '401': { title: 'NOT AUTHENTICATED',  msg: 'You need to be logged in to access this page.' },
+    '408': { title: 'REQUEST TIMEOUT',    msg: 'The request took too long. Check your connection and try again.' },
+    '503': { title: 'UNAVAILABLE',        msg: 'The portal is temporarily unavailable. Please try again shortly.' },
+    'offline': { title: 'NO CONNECTION',  msg: "You appear to be offline. Check your internet connection." },
+  };
+
+  if(code){
+    document.getElementById('error-code').textContent = code;
+    const info = ERRORS[code] || {};
+    document.getElementById('error-title').textContent = title || info.title || 'ERROR';
+    document.getElementById('error-msg').textContent   = msg   || info.msg   || 'An unexpected error occurred.';
+  }
+
+  // Auto-detect offline
+  if(!navigator.onLine && !code){
+    document.getElementById('error-code').textContent  = '!';
+    document.getElementById('error-title').textContent = 'NO CONNECTION';
+    document.getElementById('error-msg').textContent   = "You appear to be offline. Check your internet and try again.";
+  }
+
+  // Redirect here automatically on unhandled errors from other pages
+  window.addEventListener('storage', e=>{
+    if(e.key==='_scp_error'){
+      const d=JSON.parse(e.newValue||'{}');
+      if(d.code) document.getElementById('error-code').textContent=d.code;
+      if(d.title) document.getElementById('error-title').textContent=d.title;
+      if(d.msg)   document.getElementById('error-msg').textContent=d.msg;
+      localStorage.removeItem('_scp_error');
+    }
+  });
+})();
+
+// Helper: call from any page to redirect to error
+// Usage: scpError(404) or scpError(403, 'No Access', 'Custom message')
+function scpError(code, title, msg){
+  const params = new URLSearchParams({code: code||404});
+  if(title) params.set('title', title);
+  if(msg)   params.set('msg', msg);
+  window.location.href = 'error.html?' + params.toString();
+}
+</script>
+</body>
+</html>
