@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIC TAC TOE</title>
+<style>
+:root { --g:#3fbf3f; --gs:#6fdc6f; --gd:#2a9f2a; --r:#ff4444; --gold:#ffcc00; --bg:#000; }
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ background:var(--bg); color:var(--g); font-family:Arial,sans-serif;
+      display:flex; flex-direction:column; min-height:100vh; user-select:none; }
+#hdr{ border-bottom:2px solid var(--g); box-shadow:0 0 14px color-mix(in srgb,var(--g) 60%,transparent);
+       padding:10px 24px; display:flex; align-items:center; gap:16px; flex-shrink:0;
+       background:var(--bg); position:sticky; top:0; z-index:10; }
+#hdr-title{ font-size:20px; font-weight:bold; letter-spacing:5px;
+             text-shadow:0 0 10px var(--g); flex:1; text-align:center; }
+#hdr-sub{ font-size:9px; letter-spacing:2px; color:var(--gs); text-align:center; }
+.back-btn{ padding:5px 14px; border:1px solid var(--g); background:transparent;
+            color:var(--g); font-size:10px; letter-spacing:2px; cursor:pointer; transition:.15s; white-space:nowrap; }
+.back-btn:hover{ background:var(--g); color:#000; }
+#game-wrap{ flex:1; display:flex; justify-content:center; align-items:flex-start;
+             flex-direction:column; gap:10px; padding:14px 16px 24px;
+             align-items:center; overflow-y:auto; }
+.score-bar{ display:flex; gap:20px; font-size:11px; letter-spacing:2px; color:var(--gs);
+             flex-shrink:0; flex-wrap:wrap; justify-content:center; }
+.score-val{ color:var(--g); font-weight:bold; font-size:13px; }
+.btn{ padding:7px 20px; border:1px solid var(--g); background:transparent; color:var(--g);
+       font-size:11px; letter-spacing:2px; cursor:pointer; transition:.15s; }
+.btn:hover{ background:var(--g); color:#000; }
+.btn.red{ border-color:var(--r); color:var(--r); }
+.btn.red:hover{ background:var(--r); color:#000; }
+
+#ol-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:500;
+              align-items:center; justify-content:center; font-family:monospace; }
+#ol-overlay.open { display:flex; }
+#ol-box { border:1px solid var(--g,#3fbf3f); padding:32px 36px; min-width:320px; max-width:420px;
+          width:90vw; display:flex; flex-direction:column; gap:14px; background:#040f04;
+          box-shadow:0 0 40px rgba(0,180,0,0.2); }
+.ol-title { font-size:13px; letter-spacing:5px; color:var(--g,#3fbf3f); text-align:center; }
+.ol-sub   { font-size:9px; letter-spacing:2px; color:#2a4a2a; text-align:center; margin-top:-8px; }
+.ol-btn   { background:transparent; border:1px solid var(--g,#3fbf3f); color:var(--g,#3fbf3f);
+            padding:10px; font-size:10px; letter-spacing:3px; cursor:pointer; font-family:monospace; width:100%; }
+.ol-btn:hover { background:var(--g,#3fbf3f); color:#000; }
+.ol-btn.red   { border-color:#ff3333; color:#ff3333; }
+.ol-btn.red:hover { background:#ff3333; color:#000; }
+.ol-btn.gold  { border-color:#ffaa00; color:#ffaa00; }
+.ol-btn.gold:hover { background:#ffaa00; color:#000; }
+.ol-input { background:#000; border:1px solid #1a3a1a; color:#eee; padding:10px 12px;
+            font-size:14px; letter-spacing:4px; font-family:monospace; width:100%;
+            text-align:center; text-transform:uppercase; outline:none; }
+.ol-input:focus { border-color:var(--g,#3fbf3f); }
+.ol-code { font-size:32px; letter-spacing:8px; color:var(--g,#3fbf3f); text-align:center;
+           text-shadow:0 0 20px var(--g,#3fbf3f); font-weight:bold; }
+.ol-info { font-size:10px; letter-spacing:2px; color:#3a5a3a; text-align:center; }
+.ol-err  { font-size:10px; color:#ff3333; text-align:center; min-height:14px; letter-spacing:1px; }
+.ol-sep  { border:none; border-top:1px solid #1a2a1a; margin:4px 0; }
+#ol-status-bar { font-size:10px; letter-spacing:2px; color:#ffaa00; text-align:center;
+                 padding:6px; border:1px solid #2a2a00; background:#0a0a00; display:none; }
+
+
+#ttt-outer{ display:flex; flex-direction:column; align-items:center; gap:12px; }
+#ttt-board{ display:grid; grid-template-columns:repeat(3,110px); grid-template-rows:repeat(3,110px); gap:4px; }
+.ttt-cell{ background:#111; border:1px solid #202020; font-size:58px;
+           display:flex; align-items:center; justify-content:center;
+           cursor:pointer; transition:background .15s; border-radius:4px; }
+.ttt-cell:hover:not(.taken){ background:#1a2a1a; }
+.ttt-cell.taken{ cursor:default; }
+.ttt-cell.X{ color:var(--g); text-shadow:0 0 18px var(--g); }
+.ttt-cell.O{ color:var(--r); text-shadow:0 0 18px var(--r); font-size:68px; line-height:1; }
+.ttt-cell.win{ background:#0d2a0d; box-shadow:inset 0 0 20px rgba(0,180,0,0.35); }
+.ttt-cell.win.X{ color:#7fff7f; text-shadow:0 0 20px #3fbf3f,0 0 40px #3fbf3f; }
+.ttt-cell.win.O{ color:#ff8080; text-shadow:0 0 20px var(--r),0 0 40px var(--r); }
+#ttt-status{ font-size:13px; letter-spacing:2px; height:20px; color:var(--gs); }
+#ttt-modes{ display:flex; gap:5px; flex-wrap:wrap; justify-content:center; }
+.mode-btn{ padding:5px 13px; border:1px solid #222; background:transparent;
+           color:#555; font-size:10px; letter-spacing:1px; cursor:pointer;
+           transition:.15s; border-radius:12px; }
+.mode-btn.active{ border-color:var(--g); color:var(--g); background:color-mix(in srgb,var(--g) 10%,transparent); }
+
+</style>
+</head>
+<body>
+<div id="hdr">
+  <button class="back-btn" onclick="(function(){if(window.opener||window.history.length<=1){window.close();}else{location.href='websites.html';}})()">← BACK</button>
+  <div style="flex:1;text-align:center;">
+    <div id="hdr-title">TIC TAC TOE</div>
+    <div id="hdr-sub"></div>
+  </div>
+  <div style="width:90px;display:flex;justify-content:flex-end;align-items:center;gap:8px;">
+  <button onclick="_goFS()" style="background:transparent;border:1px solid #2a4a2a;color:#3a6a3a;font-size:10px;letter-spacing:1px;padding:4px 8px;cursor:pointer;font-family:monospace;" title="Fullscreen (F)">&#9974; FULL</button>
+</div>
+</div>
+<div id="game-wrap">
+
+<div id="ttt-outer">
+<div class="score-bar">
+  <span> <span class="score-val" id="ttt-sx">0</span></span>
+  <span>DRAW <span class="score-val" id="ttt-sd">0</span></span>
+  <span> <span class="score-val" id="ttt-so">0</span></span>
+</div>
+<div id="ttt-modes">
+  <button class="mode-btn" id="ttt-pvp"  onclick="tttSetMode('pvp')">2 PLAYER</button>
+  <button class="mode-btn" onclick="olOpen('ttt')" style="border-color:#ffaa00;color:#ffaa00;">&#127758; ONLINE</button>
+  <button class="mode-btn" id="ttt-easy" onclick="tttSetMode('easy')">EASY</button>
+  <button class="mode-btn active" id="ttt-med" onclick="tttSetMode('med')">MEDIUM</button>
+  <button class="mode-btn" id="ttt-hard" onclick="tttSetMode('hard')">HARD</button>
+</div>
+<div id="ttt-status">SELECT A MODE</div>
+<div id="ttt-board"></div>
+<button class="btn" onclick="tttInit()"> NEW GAME</button>
+</div>
+<div id="ol-status-bar"></div>
+<div id="ol-overlay">
+  <div id="ol-box">
+    <!-- Screen: logged-out guest -->
+    <div id="ol-screen-guest" style="display:none;">
+      <div class="ol-title">ONLINE PLAY</div>
+      <div class="ol-sub">REQUIRES AN ACCOUNT</div>
+      <hr class="ol-sep">
+      <div class="ol-info">You need a portal account to play online.<br>You can still play offline or vs bots.</div>
+      <button class="ol-btn" onclick="olClose()">PLAY OFFLINE</button>
+    </div>
+
+    <!-- Screen: choose mode -->
+    <div id="ol-screen-menu" style="display:none;">
+      <div class="ol-title">ONLINE PLAY</div>
+      <div class="ol-sub" id="ol-user-label"></div>
+      <hr class="ol-sep">
+      <button class="ol-btn gold" onclick="olQuickMatch()">&#9889; QUICK MATCH</button>
+      <button class="ol-btn" onclick="olShowCreate()">&#43; CREATE ROOM</button>
+      <button class="ol-btn" onclick="olShowJoin()">&#8594; JOIN WITH CODE</button>
+      <hr class="ol-sep">
+      <button class="ol-btn red" onclick="olClose()">PLAY OFFLINE</button>
+    </div>
+
+    <!-- Screen: create room -->
+    <div id="ol-screen-create" style="display:none;">
+      <div class="ol-title">YOUR ROOM CODE</div>
+      <div class="ol-sub">SHARE THIS WITH YOUR OPPONENT</div>
+      <div class="ol-code" id="ol-room-display">------</div>
+      <div class="ol-info">Waiting for opponent to join...</div>
+      <div class="ol-info" id="ol-waiting-dots">&#9632; &#9632; &#9632;</div>
+      <hr class="ol-sep">
+      <button class="ol-btn red" onclick="olCancelRoom()">CANCEL</button>
+    </div>
+
+    <!-- Screen: join room -->
+    <div id="ol-screen-join" style="display:none;">
+      <div class="ol-title">JOIN ROOM</div>
+      <div class="ol-sub">ENTER THE 6-CHARACTER CODE</div>
+      <input class="ol-input" id="ol-join-input" maxlength="6" placeholder="XXXXXX"
+             oninput="this.value=this.value.toUpperCase()"/>
+      <div class="ol-err" id="ol-join-err"></div>
+      <button class="ol-btn gold" onclick="olDoJoin()">JOIN</button>
+      <button class="ol-btn" onclick="olShowMenu()">BACK</button>
+    </div>
+
+    <!-- Screen: quick match searching -->
+    <div id="ol-screen-qm" style="display:none;">
+      <div class="ol-title">QUICK MATCH</div>
+      <div class="ol-sub">SEARCHING FOR OPPONENT...</div>
+      <div class="ol-code" style="font-size:24px;">&#128269;</div>
+      <div class="ol-info" id="ol-qm-status">Looking for a game...</div>
+      <hr class="ol-sep">
+      <button class="ol-btn red" onclick="olCancelQM()">CANCEL</button>
+    </div>
+  </div>
+</div>
+<div id="ol-status-bar"></div>
+
+</div>
+<script>
+(function(){
+  var t=JSON.parse(localStorage.getItem('scpLastTheme')||localStorage.getItem('scpTheme')||'{}');
+  var bg=t.bg||'#000000', ac=t.accent||'#3fbf3f';
+  document.documentElement.style.setProperty('--g', ac);
+  document.documentElement.style.setProperty('--bg', bg);
+  function lighten(hex,amt){
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    r=Math.min(255,r+amt);g=Math.min(255,g+amt);b=Math.min(255,b+amt);
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  document.documentElement.style.setProperty('--gs', lighten(ac,50));
+  document.documentElement.style.setProperty('--gd', lighten(ac,-30));
+  document.body.style.backgroundColor=bg;
+  document.getElementById('hdr').style.backgroundColor=bg;
+  // Disable right-click on all game pages
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; });
+  // Disable right-click drag image ghost
+  document.addEventListener('dragstart', function(e){ e.preventDefault(); return false; });
+})();
+//  ONLINE MULTIPLAYER ENGINE 
+// Inline this into each game. Handles rooms, polling, state sync.
+
+const SB_URL = 'https://esgunecokerphecjrtjw.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzZ3VuZWNva2VycGhlY2pydGp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODQ1ODksImV4cCI6MjA4ODI2MDU4OX0.RUr9owzkstT75xCUMQ6Ru9bQC_im99gnv2AlYwFVrwI';
+
+async function ogReq(method, params, body) {
+    const url = SB_URL + '/rest/v1/online_games' + (params ? '?' + params : '');
+    const r = await fetch(url, {
+        method: method || 'GET',
+        headers: {
+            'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY,
+            'Content-Type': 'application/json', 'Prefer': 'return=representation'
+        },
+        body: body ? JSON.stringify(body) : undefined
+    });
+    const t = await r.text();
+    if (!r.ok) { console.error('ogReq error:', r.status, t); return null; }
+    return t ? JSON.parse(t) : [];
+}
+
+// Generate 6-char room code
+function ogRoomCode() {
+    return Math.random().toString(36).slice(2,8).toUpperCase();
+}
+
+// Create a room
+async function ogCreate(gameType, player, initState) {
+    const id = ogRoomCode();
+    const r = await ogReq('POST', null, {
+        id, game_type: gameType, player1: player,
+        state: JSON.stringify(initState), turn: player,
+        status: 'waiting', created_at: Date.now(), updated_at: Date.now()
+    });
+    return r ? id : null;
+}
+
+// Join a room by code
+async function ogJoin(code, player) {
+    const rows = await ogReq('GET', 'id=eq.' + code + '&status=eq.waiting');
+    if (!rows || !rows.length) return null;
+    const game = rows[0];
+    if (game.player2) return null; // already full
+    if (game.player1 === player) return null; // can't play yourself
+    const r = await ogReq('PATCH', 'id=eq.' + code, {
+        player2: player, status: 'active', updated_at: Date.now()
+    });
+    return r !== null ? game : null;
+}
+
+// Quick match - find waiting room or create one
+async function ogQuickMatch(gameType, player) {
+    const rows = await ogReq('GET', 'game_type=eq.' + gameType + '&status=eq.waiting&order=created_at.asc&limit=10');
+    if (rows && rows.length) {
+        for (const g of rows) {
+            if (g.player1 !== player) {
+                const joined = await ogJoin(g.id, player);
+                if (joined) return { code: g.id, role: 'player2', game: joined };
+            }
+        }
+    }
+    // No match found, create room
+    return null; // caller creates room
+}
+
+// Poll for state updates
+async function ogPoll(code) {
+    const rows = await ogReq('GET', 'id=eq.' + code);
+    return rows && rows.length ? rows[0] : null;
+}
+
+// Push a move (update state + flip turn)
+async function ogMove(code, newState, nextTurn) {
+    return await ogReq('PATCH', 'id=eq.' + code, {
+        state: JSON.stringify(newState), turn: nextTurn,
+        updated_at: Date.now()
+    });
+}
+
+// End game
+async function ogEnd(code, winner) {
+    return await ogReq('PATCH', 'id=eq.' + code, {
+        status: 'finished', winner: winner || 'draw', updated_at: Date.now()
+    });
+}
+
+// Abandon game
+async function ogAbandon(code) {
+    return await ogReq('PATCH', 'id=eq.' + code, {
+        status: 'abandoned', updated_at: Date.now()
+    });
+}
+
+// Delete game row entirely (call after game ends to save storage)
+async function ogDelete(code) {
+    return await ogReq('DELETE', 'id=eq.' + code);
+}
+
+// Clean up stale finished/abandoned rooms older than 1 hour
+async function ogCleanup() {
+    const cutoff = Date.now() - (60 * 60 * 1000); // 1 hour ago
+    // Delete finished games
+    await ogReq('DELETE', 'status=eq.finished&updated_at=lt.' + cutoff);
+    // Delete abandoned games
+    await ogReq('DELETE', 'status=eq.abandoned&updated_at=lt.' + cutoff);
+    // Delete waiting rooms older than 10 minutes (nobody joined)
+    const waitCutoff = Date.now() - (10 * 60 * 1000);
+    await ogReq('DELETE', 'status=eq.waiting&created_at=lt.' + waitCutoff);
+}
+
+
+//  ONLINE LOBBY CONTROLLER 
+let _olGameType = '';
+let _olPlayer = '';
+let _olRoomCode = '';
+let _olRole = ''; // 'player1' or 'player2'
+let _olOpponent = ''; // opponent username
+let _olPollTimer = null;
+let _olWaitTimer = null;
+let _olLastUpdated = 0;
+let _olActive = false;
+let _olQmCode = '';
+
+// Called by game to open lobby
+function olOpen(gameType) {
+    _olGameType = gameType;
+    _olPlayer = localStorage.getItem('loggedInUser') || '';
+    document.getElementById('ol-overlay').classList.add('open');
+    if (!_olPlayer) {
+        olShow('guest');
+    } else {
+        document.getElementById('ol-user-label').textContent = 'LOGGED IN AS ' + _olPlayer.toUpperCase();
+        olShow('menu');
+    }
+}
+
+function olClose() {
+    document.getElementById('ol-overlay').classList.remove('open');
+    clearInterval(_olPollTimer);
+    clearTimeout(_olWaitTimer);
+    _olActive = false;
+}
+
+async function olAbandonAndClose() {
+    clearInterval(_olPollTimer);
+    clearTimeout(_olWaitTimer);
+    _olActive = false;
+    const bar = document.getElementById('ol-status-bar');
+    if (bar) bar.style.display = 'none';
+    if (_olRoomCode) { await ogAbandon(_olRoomCode); _olRoomCode = ''; }
+}
+
+function olShow(screen) {
+    ['guest','menu','create','join','qm'].forEach(s => {
+        const el = document.getElementById('ol-screen-' + s);
+        if (el) el.style.display = s === screen ? '' : 'none';
+    });
+}
+
+function olShowMenu() { olShow('menu'); }
+function olShowCreate() {
+    olShow('create');
+    document.getElementById('ol-room-display').textContent = '...';
+    document.getElementById('ol-waiting-dots').textContent = String.fromCharCode(9632) + ' ' + String.fromCharCode(9632) + ' ' + String.fromCharCode(9632);
+    olCreateRoom();
+}
+function olShowJoin() {
+    document.getElementById('ol-join-input').value = '';
+    document.getElementById('ol-join-err').textContent = '';
+    olShow('join');
+}
+
+// Create a room and wait for opponent
+async function olCreateRoom() {
+    // Silently clean up stale rooms before creating a new one
+    ogCleanup().catch(() => {});
+    const initState = typeof olGetInitState === 'function' ? olGetInitState() : {};
+    const code = await ogCreate(_olGameType, _olPlayer, initState);
+    if (!code) { alert('Could not create room. Check connection.'); olShow('menu'); return; }
+    _olRoomCode = code;
+    _olRole = 'player1';
+    document.getElementById('ol-room-display').textContent = code;
+    // Animate waiting dots
+    let dots = 0;
+    const dotChars = [String.fromCharCode(9632)+' '+String.fromCharCode(9632)+' '+String.fromCharCode(9632),
+                      String.fromCharCode(9632)+' '+String.fromCharCode(9633)+' '+String.fromCharCode(9633),
+                      String.fromCharCode(9632)+' '+String.fromCharCode(9632)+' '+String.fromCharCode(9633)];
+    _olWaitTimer = setInterval(() => {
+        document.getElementById('ol-waiting-dots').textContent = dotChars[dots % 3]; dots++;
+    }, 600);
+    // Poll for player2 joining
+    _olPollTimer = setInterval(async () => {
+        const g = await ogPoll(_olRoomCode);
+        if (!g) return;
+        if (g.status === 'active' && g.player2) {
+            clearInterval(_olPollTimer);
+            clearInterval(_olWaitTimer);
+            olStartGame(g);
+        }
+        if (g.status === 'abandoned') {
+            clearInterval(_olPollTimer); clearInterval(_olWaitTimer);
+            olShow('menu');
+        }
+    }, 1500);
+}
+
+// Cancel room while waiting
+async function olCancelRoom() {
+    clearInterval(_olPollTimer); clearInterval(_olWaitTimer);
+    if (_olRoomCode) await ogAbandon(_olRoomCode);
+    _olRoomCode = '';
+    olShow('menu');
+}
+
+// Join by code
+async function olDoJoin() {
+    const code = document.getElementById('ol-join-input').value.trim().toUpperCase();
+    if (code.length !== 6) { document.getElementById('ol-join-err').textContent = 'Code must be 6 characters.'; return; }
+    document.getElementById('ol-join-err').textContent = 'Joining...';
+    const game = await ogJoin(code, _olPlayer);
+    if (!game) { document.getElementById('ol-join-err').textContent = 'Room not found or already full.'; return; }
+    _olRoomCode = code;
+    _olRole = 'player2';
+    olStartGame(game);
+}
+
+// Quick match
+async function olQuickMatch() {
+    olShow('qm');
+    document.getElementById('ol-qm-status').textContent = 'Searching...';
+    const match = await ogQuickMatch(_olGameType, _olPlayer);
+    if (match) {
+        _olRoomCode = match.code;
+        _olRole = match.role;
+        olStartGame(match.game);
+        return;
+    }
+    // No match - create room and wait
+    document.getElementById('ol-qm-status').textContent = 'No opponents found  created a room, waiting...';
+    const initState = typeof olGetInitState === 'function' ? olGetInitState() : {};
+    const code = await ogCreate(_olGameType, _olPlayer, initState);
+    if (!code) { document.getElementById('ol-qm-status').textContent = 'Error creating room.'; return; }
+    _olQmCode = code;
+    _olRoomCode = code;
+    _olRole = 'player1';
+    _olPollTimer = setInterval(async () => {
+        const g = await ogPoll(_olRoomCode);
+        if (!g) return;
+        if (g.status === 'active' && g.player2) {
+            clearInterval(_olPollTimer);
+            olStartGame(g);
+        }
+    }, 1500);
+}
+
+function olCancelQM() {
+    clearInterval(_olPollTimer);
+    if (_olQmCode) { ogAbandon(_olQmCode); _olQmCode = ''; }
+    _olRoomCode = '';
+    olShow('menu');
+}
+
+// Called when game is ready to start
+function olStartGame(game) {
+    _olActive = true;
+    // Store opponent's username so we can set turn correctly
+    window._olOpponent = _olRole === 'player1' ? game.player2 : game.player1;
+    document.getElementById('ol-overlay').classList.remove('open');
+    // Show status bar
+    const bar = document.getElementById('ol-status-bar');
+    bar.style.display = 'block';
+    const opp = _olRole === 'player1' ? game.player2 : game.player1;
+    bar.textContent = String.fromCharCode(9668) + ' ' + (_olRole === 'player1' ? 'You are WHITE' : 'You are BLACK') + '  |  vs ' + opp.toUpperCase() + '  |  Room: ' + _olRoomCode;
+    // Parse initial state
+    try { var st = JSON.parse(game.state); } catch(e) { var st = {}; }
+    // Tell the game to start online mode
+    _olOpponent = _olRole === 'player1' ? (game.player2 || '') : (game.player1 || '');
+    if (typeof olOnStart === 'function') olOnStart(game, _olRole, st);
+    // Start polling for opponent moves
+    _olLastUpdated = game.updated_at || 0;
+    clearInterval(_olPollTimer);
+    _olPollTimer = setInterval(olPollOpponent, 1500);
+}
+
+async function olPollOpponent() {
+    if (!_olActive || !_olRoomCode) return;
+    const g = await ogPoll(_olRoomCode);
+    if (!g) return;
+    if (g.status === 'finished' || g.status === 'abandoned') {
+        clearInterval(_olPollTimer);
+        _olActive = false;
+        document.getElementById('ol-status-bar').textContent = g.status === 'finished'
+            ? 'GAME OVER  ' + (g.winner === _olPlayer ? 'YOU WON!' : g.winner === 'draw' ? 'DRAW!' : g.winner.toUpperCase() + ' WON!')
+            : 'OPPONENT DISCONNECTED';
+        if (typeof olOnEnd === 'function') olOnEnd(g.winner);
+        // Clean up: delete the row so storage stays lean
+        const _finishedCode = _olRoomCode;
+        setTimeout(async () => { try { await ogDelete(_finishedCode); } catch(e){} }, 10000);
+        return;
+    }
+    if (g.updated_at > _olLastUpdated && (g.turn === _olPlayer || g.turn === '')) {
+        _olLastUpdated = g.updated_at;
+        try { var st = JSON.parse(g.state); } catch(e) { var st = {}; }
+        if (typeof olOnOpponentMove === 'function') olOnOpponentMove(st);
+    }
+}
+
+// Called by game after making a move
+async function olSendMove(newState) {
+    if (!_olActive || !_olRoomCode) return;
+    // Set turn to opponent's username so their poll fires
+    const nextTurn = window._olOpponent || '';
+    const result = await ogMove(_olRoomCode, newState, nextTurn);
+    if (result && Array.isArray(result) && result[0]) {
+        // Use the server's actual updated_at so we don't re-trigger on our own write
+        _olLastUpdated = result[0].updated_at || Date.now();
+    } else if (result) {
+        // Fallback - use server time approximation
+        _olLastUpdated = Date.now();
+    }
+}
+
+async function olSendEnd(winner) {
+    if (!_olRoomCode) return;
+    clearInterval(_olPollTimer);
+    _olActive = false;
+    await ogEnd(_olRoomCode, winner);
+    // Delete the row after 10 seconds - gives opponent time to see result, then frees storage
+    const _codeToDelete = _olRoomCode;
+    setTimeout(async () => { await ogDelete(_codeToDelete); }, 10000);
+}
+
+
+let _tttOnline=false,_tttMyMark='X',_tttOppMark='O';
+
+function _tttSetOnlineUI(on) {
+    ['ttt-pvp','ttt-easy','ttt-med','ttt-hard'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.style.opacity = on ? '0.3' : ''; b.style.pointerEvents = on ? 'none' : ''; }
+    });
+    const newBtn = document.querySelector('#ttt-outer .btn');
+    if (newBtn) {
+        if (on) {
+            newBtn.textContent = 'LEAVE MATCH';
+            newBtn.onclick = () => { if(confirm('Leave the match?')) { _tttOnline=false; olAbandonAndClose(); _tttSetOnlineUI(false); tttInit(); } };
+        } else {
+            newBtn.textContent = '\u21ba NEW GAME';
+            newBtn.onclick = tttInit;
+        }
+    }
+}
+
+function olGetInitState(){return{board:Array(9).fill(''),turn:'X'};}
+function olOnStart(game,role,state){
+    _tttOnline=true;tttMode='online';
+    _tttMyMark=role==='player1'?'X':'O';_tttOppMark=role==='player1'?'O':'X';
+    tttBoard=state.board||Array(9).fill('');tttTurn=state.turn||'X';tttDone=false;tttInit();
+    const opp=(role==='player1'?game.player2:game.player1)||'?';
+    tttStatus('ONLINE vs '+opp.toUpperCase()+' -- You are '+_tttMyMark);
+    _tttSetOnlineUI(true);
+}
+function olOnOpponentMove(state){
+    tttBoard=state.board;tttTurn=state.turn;
+    tttBoard.forEach((v,i)=>tttRenderCell(i));
+    const w=tttCheckWin();
+    if(w){tttDone=true;w.forEach(j=>document.querySelectorAll('.ttt-cell')[j].classList.add('win'));tttStatus(_tttOppMark+' WINS!');return;}
+    if(tttBoard.every(c=>c)){tttDone=true;tttStatus('DRAW!');return;}
+    tttStatus('YOUR TURN -- '+_tttMyMark);
+}
+function olOnEnd(w){const me=localStorage.getItem('loggedInUser')||'';tttDone=true;tttStatus(w==='draw'?'DRAW!':w===me?'YOU WIN!':'YOU LOSE!');_tttSetOnlineUI(false);_tttOnline=false;}
+
+
+
+let tttBoard,tttTurn,tttDone,tttMode='med',tttScore={X:0,O:0,D:0};
+const TTT_WINS=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+function tttSetMode(m){
+    tttMode=m;
+    ['pvp','easy','med','hard'].forEach(x=>document.getElementById('ttt-'+x).className='mode-btn'+(x===m?' active':''));
+    tttInit();
+}
+
+function tttInit(){
+    tttBoard=Array(9).fill('');tttTurn='X';tttDone=false;
+    tttStatus(tttMode==='pvp'?'TURN — ✕':'YOUR TURN — ✕');
+    const b=document.getElementById('ttt-board');b.innerHTML='';
+    for(let i=0;i<9;i++){
+        const c=document.createElement('div');c.className='ttt-cell';
+        c.onclick=()=>tttClick(i);b.appendChild(c);
+    }
+}
+function tttClick(i){
+    if(tttDone||tttBoard[i])return;
+    if(_tttOnline){
+        if(tttTurn!==_tttMyMark){tttStatus('WAIT FOR OPPONENT...');return;}
+    } else {
+        if(tttMode!=='pvp'&&tttTurn==='O')return;
+    }
+    tttBoard[i]=tttTurn;tttRenderCell(i);
+    const w=tttCheckWin();
+    if(w){tttDone=true;tttScore[tttTurn]++;tttUpdateScore();
+        w.forEach(j=>document.querySelectorAll('.ttt-cell')[j].classList.add('win'));
+        tttStatus(tttTurn==='X'?'✕ WINS!':'○ WINS!');return;}
+    if(tttBoard.every(c=>c)){tttDone=true;tttScore.D++;tttUpdateScore();tttStatus('DRAW!');return;}
+    tttTurn=tttTurn==='X'?'O':'X';
+    if(tttMode!=='pvp'&&tttTurn==='O'){tttStatus('CPU THINKING...');setTimeout(tttCpuMove,300);}
+    else tttStatus((tttMode==='pvp'?'TURN':'YOUR TURN')+'  '+(tttTurn==='X'?'':''));
+}
+function tttRenderCell(i){
+    const c=document.querySelectorAll('.ttt-cell')[i];
+    c.textContent=tttBoard[i]==='X'?'✕':'○';c.classList.add('taken',tttBoard[i]);
+}
+function tttCheckWin(){
+    for(const [a,b,c] of TTT_WINS)if(tttBoard[a]&&tttBoard[a]===tttBoard[b]&&tttBoard[a]===tttBoard[c])return[a,b,c];
+    return null;
+}
+function tttCpuMove(){
+    let move;
+    const emp=tttBoard.map((v,i)=>v?-1:i).filter(i=>i>=0);
+    if(tttMode==='easy'){
+        // Easy: mostly random, but will always take a winning move if available
+        // and has 20% chance to block
+        const winMove=tttForcedMove('O');
+        if(winMove!==-1){ move=winMove; }
+        else if(Math.random()<0.2){ const blk=tttForcedMove('X'); move=blk!==-1?blk:emp[Math.floor(Math.random()*emp.length)]; }
+        else { move=emp[Math.floor(Math.random()*emp.length)]; }
+    } else if(tttMode==='med'){
+        // Medium: always wins/blocks immediate threats, then plays decent moves
+        // but makes mistakes on deeper strategy (~40% of non-forced moves)
+        const winMove=tttForcedMove('O');
+        const blkMove=tttForcedMove('X');
+        if(winMove!==-1) move=winMove;
+        else if(blkMove!==-1) move=blkMove;
+        else if(Math.random()<0.4){
+            const pref=[4,0,2,6,8,1,3,5,7].filter(i=>emp.includes(i));
+            move=pref[Math.floor(Math.random()*pref.length)];
+        } else { move=tttBestMove(0); }
+    } else {
+        move=tttBestMove(0); // Hard: perfect minimax
+    }
+    if(move===undefined||move===null)return;
+    tttBoard[move]=tttTurn;tttRenderCell(move);
+    const w2=tttCheckWin();
+    if(w2){tttDone=true;tttScore[tttTurn]++;tttUpdateScore();
+        w2.forEach(j=>document.querySelectorAll('.ttt-cell')[j].classList.add('win'));
+        tttStatus(tttTurn==='X'?'✕ WINS!':'○ WINS!');return;}
+    if(tttBoard.every(c=>c)){tttDone=true;tttScore.D++;tttUpdateScore();tttStatus('DRAW!');return;}
+    tttTurn='X';tttStatus('YOUR TURN — ✕');
+}
+
+function tttForcedMove(mark){
+    for(let i=0;i<9;i++) if(!tttBoard[i]){
+        tttBoard[i]=mark;
+        const w=tttCheckWin();
+        tttBoard[i]='';
+        if(w) return i;
+    }
+    return -1;
+}
+
+function tttBestMove(noise){
+    let best=Infinity,move=-1;
+    const emp=tttBoard.map((v,i)=>v?-1:i).filter(i=>i>=0);
+    // Prefer center then corners then edges if noise lets us be random
+    const order=[4,0,2,6,8,1,3,5,7];
+    const sorted=order.filter(i=>emp.includes(i));
+    for(const i of sorted){
+        tttBoard[i]='O';
+        const s=tttMini(true,0)+(Math.random()-0.5)*noise;
+        tttBoard[i]='';
+        if(s<best){best=s;move=i;}
+    }
+    return move===-1?emp[0]:move;
+}
+function tttMini(isX,d){
+    const w=tttCheckWin();if(w)return isX?-10+d:10-d;
+    if(tttBoard.every(c=>c))return 0;
+    let best=isX?Infinity:-Infinity;
+    for(let i=0;i<9;i++)if(!tttBoard[i]){
+        tttBoard[i]=isX?'X':'O';const s=tttMini(!isX,d+1);tttBoard[i]='';
+        best=isX?Math.min(best,s):Math.max(best,s);
+    }
+    return best;
+}
+function tttStatus(m){document.getElementById('ttt-status').textContent=m;}
+function tttUpdateScore(){document.getElementById('ttt-sx').textContent=tttScore.X;document.getElementById('ttt-sd').textContent=tttScore.D;document.getElementById('ttt-so').textContent=tttScore.O;}
+function _scpApplyTttInviteFromURL(){
+    try{
+        var p=new URLSearchParams(location.search);
+        var code=(p.get('invite')||p.get('join')||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+        if(code.length!==6||!localStorage.getItem('loggedInUser'))return;
+        olOpen('ttt');
+        setTimeout(function(){
+            olShowJoin();
+            var inp=document.getElementById('ol-join-input');
+            if(inp)inp.value=code;
+            olDoJoin();
+            try{history.replaceState({},'',location.pathname+location.hash);}catch(e){}
+        },400);
+    }catch(e){}
+}
+window.onload=function(){ tttInit(); _scpApplyTttInviteFromURL(); };
+
+</script>
+<script>
+function _goFS(){if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(function(){});}else{document.exitFullscreen().catch(function(){});}}
+document.addEventListener('keydown',function(e){if(e.code==='KeyF')_goFS();});
+</script></body>
+</html>

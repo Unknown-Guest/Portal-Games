@@ -1,0 +1,123 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #222;
+    color: white;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+#game-wrapper {
+    background: #333;
+    padding: 20px;
+    border-radius: 12px;
+    width: 400px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+#top-bar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+#coin {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: gold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 48px;
+    margin: 20px auto;
+    transition: 0.3s;
+}
+
+.default-coin { background: gold; }
+.gold { background: gold; }
+.blue { background: #00aaff; }
+.neon { background: #39ff14; box-shadow: 0 0 20px #39ff14; }
+
+#choices {
+    display: flex;
+    justify-content: space-around;
+}
+
+.choice {
+    padding: 10px 20px;
+    background: #ff9800;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.choice:hover {
+    background: #ffc107;
+}
+
+#shop {
+    background: #444;
+    padding: 20px;
+    border-radius: 10px;
+    margin-top: 20px;
+}
+
+.hidden {
+    display: none;
+}
+
+.shop-row {
+    margin-bottom: 15px;
+}
+
+.shop-item {
+    padding: 8px 12px;
+    margin-right: 10px;
+    background: #666;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: white;
+}
+
+.shop-item:hover {
+    background: #888;
+}
+
+/* Background themes */
+.bg-dark { background: #111 !important; }
+.bg-sunset { background: linear-gradient(#ff7e5f, #feb47b) !important; }
+
+/* Text styles */
+.text-retro { font-family: "Courier New", monospace; }
+.text-bubble { font-family: "Comic Sans MS", cursive; }
+
+
+.coin-round {
+    border-radius: 50%;
+}
+
+.coin-square {
+    border-radius: 8px;
+}
+
+
+#difficulty-box {
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+#difficulty {
+    padding: 4px 8px;
+    border-radius: 6px;
+    margin-left: 5px;
+}

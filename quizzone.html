@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>QUIZZONE</title>
+<style>
+:root{--g:#3fbf3f;--gs:#6fdc6f;--r:#ff4444;--gold:#ffcc00;--bg:#000;--scp-green:#3fbf3f;--scp-bg:#000;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--g);font-family:'Courier New',monospace;min-height:100vh;user-select:none;}
+/* NAV */
+#navbar{width:100%;display:flex;border-bottom:2px solid var(--g);background:var(--bg);flex-shrink:0;align-items:center;}
+.nav-btn{padding:12px 28px;background:transparent;border:none;border-right:1px solid var(--g);color:var(--g);font-size:11px;font-weight:bold;letter-spacing:2px;cursor:pointer;transition:.15s;opacity:.6;font-family:'Courier New',monospace;}
+.nav-btn:hover{opacity:1;background:rgba(63,191,63,.08);}
+.nav-btn.active{opacity:1;background:var(--g);color:#000;}
+#nav-logout{margin-left:auto;padding:12px 24px;background:transparent;border:none;border-left:1px solid var(--g);color:var(--g);font-size:11px;letter-spacing:2px;cursor:pointer;opacity:.5;font-family:'Courier New',monospace;}
+#nav-logout:hover{opacity:1;color:var(--r);}
+#nav-user{padding:10px 16px;font-size:10px;letter-spacing:1px;color:#2a5a2a;border-left:1px solid #1a2a1a;}
+/* PAGES */
+.page{display:none;min-height:calc(100vh - 47px);padding:24px 32px;}
+.page.active{display:block;}
+h1{font-size:22px;letter-spacing:6px;color:var(--g);text-shadow:0 0 12px var(--g);margin-bottom:6px;}
+.sub{font-size:9px;letter-spacing:3px;color:#2a5a2a;margin-bottom:24px;}
+/* CARDS GRID */
+.quiz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:16px;}
+.quiz-card{border:1px solid #1a3a1a;padding:16px;cursor:pointer;transition:.15s;position:relative;background:#050f05;}
+.quiz-card:hover{border-color:var(--g);background:#0a1a0a;box-shadow:0 0 8px rgba(63,191,63,.15);}
+.quiz-card h3{font-size:13px;letter-spacing:1px;color:var(--g);margin-bottom:6px;}
+.quiz-card p{font-size:10px;color:#2a5a2a;line-height:1.5;}
+.quiz-card .qc-meta{font-size:9px;color:#1a3a1a;margin-top:8px;display:flex;gap:12px;}
+.quiz-card .qc-badge{position:absolute;top:10px;right:10px;font-size:8px;letter-spacing:2px;padding:2px 7px;border-radius:8px;}
+.badge-pub{border:1px solid var(--g);color:var(--g);}
+.badge-priv{border:1px solid #555;color:#555;}
+/* BUTTONS */
+.btn{padding:9px 22px;border:1px solid var(--g);background:transparent;color:var(--g);font-family:'Courier New',monospace;font-size:10px;letter-spacing:2px;cursor:pointer;transition:.15s;}
+.btn:hover{background:var(--g);color:#000;}
+.btn.primary{background:var(--g);color:#000;}
+.btn.primary:hover{background:var(--gs);}
+.btn.red{border-color:var(--r);color:var(--r);}
+.btn.red:hover{background:var(--r);color:#000;}
+.btn.gold{border-color:var(--gold);color:var(--gold);}
+.btn.gold:hover{background:var(--gold);color:#000;}
+/* INPUT */
+.inp{width:100%;padding:10px 12px;background:#050f05;border:1px solid var(--g);color:var(--g);font-size:12px;font-family:'Courier New',monospace;outline:none;margin-bottom:10px;}
+.inp::placeholder{color:#1a3a1a;}
+.lbl{font-size:9px;letter-spacing:2px;color:#2a5a2a;margin-bottom:4px;}
+.form-group{margin-bottom:14px;}
+/* MODALS */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:100;justify-content:center;align-items:center;}
+.modal-ov.open{display:flex;}
+.modal-box{border:2px solid var(--g);background:#000;box-shadow:0 0 20px var(--g);padding:28px 32px;width:500px;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
+.modal-box.wide{width:700px;}
+.modal-title{font-size:14px;letter-spacing:3px;color:var(--g);}
+.err{color:var(--r);font-size:10px;min-height:14px;}
+/* PLAY SCREEN */
+#play-screen{position:fixed;inset:0;background:#000;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:20px;}
+.play-q{font-size:20px;letter-spacing:1px;color:#fff;text-align:center;max-width:700px;line-height:1.5;}
+.play-answers{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:700px;}
+.play-ans{padding:18px 24px;border:2px solid;font-size:14px;cursor:pointer;transition:.15s;text-align:center;border-radius:4px;font-family:'Courier New',monospace;letter-spacing:1px;}
+.play-ans:nth-child(1){border-color:#e53935;color:#e53935;}
+.play-ans:nth-child(2){border-color:#1e88e5;color:#1e88e5;}
+.play-ans:nth-child(3){border-color:#43a047;color:#43a047;}
+.play-ans:nth-child(4){border-color:#fdd835;color:#1a1a00;}
+.play-ans:nth-child(4){border-color:#fdd835;color:#fdd835;}
+.play-ans:hover{opacity:.85;transform:scale(1.02);}
+.play-ans.correct{background:rgba(67,160,71,.3)!important;border-color:#43a047!important;color:#43a047!important;}
+.play-ans.wrong{background:rgba(229,57,53,.2)!important;opacity:.5;}
+.play-timer{font-size:36px;font-weight:bold;color:var(--gold);min-width:50px;text-align:center;}
+.play-progress{font-size:10px;letter-spacing:3px;color:#2a5a2a;}
+.play-score{font-size:16px;color:var(--gold);letter-spacing:2px;}
+/* SHOP */
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-top:16px;}
+.shop-item{border:1px solid #1a3a1a;padding:14px;text-align:center;background:#050f05;}
+.shop-item.owned{border-color:var(--g);}
+.shop-item .si-icon{font-size:48px;margin-bottom:8px;}
+.shop-item .si-name{font-size:10px;letter-spacing:2px;color:var(--g);margin-bottom:4px;}
+.shop-item .si-cost{font-size:9px;color:var(--gold);margin-bottom:8px;}
+.shop-item .si-desc{font-size:8px;color:#2a5a2a;margin-bottom:10px;line-height:1.4;}
+/* COSMETIC PREVIEW */
+#my-avatar{font-size:60px;display:inline-block;}
+.coins-display{font-size:14px;color:var(--gold);letter-spacing:2px;}
+/* Q EDITOR */
+.q-item{border:1px solid #1a3a1a;padding:12px;margin-bottom:8px;background:#050f05;position:relative;}
+.q-item:hover{border-color:#2a4a2a;}
+.q-num{font-size:9px;letter-spacing:2px;color:#2a5a2a;margin-bottom:6px;}
+.ans-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;}
+.ans-inp{padding:6px 10px;background:#000;border:1px solid #1a3a1a;color:var(--g);font-size:11px;font-family:'Courier New',monospace;outline:none;width:100%;}
+.ans-inp.correct-inp{border-color:var(--g);}
+.q-del{position:absolute;top:8px;right:8px;background:transparent;border:none;color:#333;cursor:pointer;font-size:14px;}
+.q-del:hover{color:var(--r);}
+/* LEADERBOARD */
+.lb-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #0a1a0a;font-size:11px;letter-spacing:1px;}
+.lb-row:nth-child(1){color:var(--gold);}
+.lb-row:nth-child(2){color:#aaa;}
+.lb-row:nth-child(3){color:#cd7f32;}
+</style>
+</head>
+<body>
+<div id="navbar">
+  <button class="nav-btn active" onclick="showPage('home')">🏠 HOME</button>
+  <button class="nav-btn" onclick="showPage('discover')">🔍 DISCOVER</button>
+  <button class="nav-btn" onclick="showPage('my-quizzes')">📋 MY QUIZZES</button>
+  <button class="nav-btn" onclick="showPage('shop')">🛍 SHOP</button>
+  <button class="nav-btn" onclick="showPage('profile')">👤 PROFILE</button>
+  <span id="nav-user"></span>
+  <button id="nav-logout" onclick="qzLogout()">[ LOGOUT ]</button>
+</div>
+
+<!-- HOME -->
+<div id="page-home" class="page active">
+  <h1>QUIZZONE</h1>
+  <div class="sub">// LEARN · COMPETE · COLLECT //</div>
+  <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;border:1px solid #1a3a1a;padding:16px;background:#050f05;">
+      <div style="font-size:9px;letter-spacing:2px;color:#2a5a2a;margin-bottom:4px;">TOTAL QUIZZES</div>
+      <div id="stat-quizzes" style="font-size:28px;color:var(--g);font-weight:bold;">–</div>
+    </div>
+    <div style="flex:1;min-width:200px;border:1px solid #1a3a1a;padding:16px;background:#050f05;">
+      <div style="font-size:9px;letter-spacing:2px;color:#2a5a2a;margin-bottom:4px;">YOUR COINS</div>
+      <div id="stat-coins" style="font-size:28px;color:var(--gold);font-weight:bold;">–</div>
+    </div>
+    <div style="flex:1;min-width:200px;border:1px solid #1a3a1a;padding:16px;background:#050f05;">
+      <div style="font-size:9px;letter-spacing:2px;color:#2a5a2a;margin-bottom:4px;">GAMES PLAYED</div>
+      <div id="stat-played" style="font-size:28px;color:#4af;font-weight:bold;">–</div>
+    </div>
+    <div style="flex:1;min-width:200px;border:1px solid #1a3a1a;padding:16px;background:#050f05;">
+      <div style="font-size:9px;letter-spacing:2px;color:#2a5a2a;margin-bottom:4px;">YOUR AVATAR</div>
+      <div id="home-avatar" style="font-size:36px;">🎮</div>
+    </div>
+  </div>
+  <div style="font-size:11px;letter-spacing:3px;color:var(--g);margin-bottom:12px;">RECENT PUBLIC QUIZZES</div>
+  <div id="home-recent" class="quiz-grid"></div>
+</div>
+
+<!-- DISCOVER -->
+<div id="page-discover" class="page">
+  <h1>DISCOVER</h1>
+  <div class="sub">// PUBLIC QUIZZES //</div>
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+    <input class="inp" id="disc-search" placeholder="🔍 SEARCH QUIZZES..." style="flex:1;min-width:200px;margin:0;" oninput="renderDiscover()"/>
+    <select class="inp" id="disc-sort" style="width:160px;margin:0;cursor:pointer;" onchange="renderDiscover()">
+      <option value="new">NEWEST</option>
+      <option value="popular">MOST PLAYED</option>
+      <option value="az">A–Z</option>
+    </select>
+  </div>
+  <div id="discover-grid" class="quiz-grid"></div>
+</div>
+
+<!-- MY QUIZZES -->
+<div id="page-my-quizzes" class="page">
+  <h1>MY QUIZZES</h1>
+  <div class="sub">// CREATE & MANAGE //</div>
+  <button class="btn primary" onclick="openCreateModal()" style="margin-bottom:20px;">➕ CREATE NEW QUIZ</button>
+  <div id="my-quiz-grid" class="quiz-grid"></div>
+</div>
+
+<!-- SHOP -->
+<div id="page-shop" class="page">
+  <h1>SHOP</h1>
+  <div class="sub">// SPEND YOUR COINS //</div>
+  <div class="coins-display" id="shop-coins" style="margin-bottom:20px;">💰 – coins</div>
+  <div style="font-size:11px;letter-spacing:3px;color:var(--g);margin-bottom:12px;">AVATARS</div>
+  <div id="shop-avatars" class="shop-grid"></div>
+  <div style="font-size:11px;letter-spacing:3px;color:var(--g);margin:20px 0 12px;">BANNERS</div>
+  <div id="shop-banners" class="shop-grid"></div>
+</div>
+
+<!-- PROFILE -->
+<div id="page-profile" class="page">
+  <h1>PROFILE</h1>
+  <div class="sub">// YOUR STATS //</div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;">
+    <div style="border:1px solid #1a3a1a;padding:24px;background:#050f05;min-width:200px;text-align:center;">
+      <div id="profile-avatar" style="font-size:72px;margin-bottom:12px;">🎮</div>
+      <div id="profile-name" style="font-size:14px;letter-spacing:3px;color:var(--g);margin-bottom:4px;"></div>
+      <div id="profile-banner" style="font-size:10px;letter-spacing:2px;padding:4px 10px;border-radius:8px;display:inline-block;margin-top:6px;"></div>
+    </div>
+    <div style="flex:1;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div style="border:1px solid #1a3a1a;padding:14px;background:#050f05;"><div style="font-size:8px;letter-spacing:2px;color:#2a5a2a;">TOTAL SCORE</div><div id="p-score" style="font-size:22px;color:var(--g);font-weight:bold;">0</div></div>
+        <div style="border:1px solid #1a3a1a;padding:14px;background:#050f05;"><div style="font-size:8px;letter-spacing:2px;color:#2a5a2a;">COINS</div><div id="p-coins" style="font-size:22px;color:var(--gold);font-weight:bold;">0</div></div>
+        <div style="border:1px solid #1a3a1a;padding:14px;background:#050f05;"><div style="font-size:8px;letter-spacing:2px;color:#2a5a2a;">GAMES PLAYED</div><div id="p-played" style="font-size:22px;color:#4af;font-weight:bold;">0</div></div>
+        <div style="border:1px solid #1a3a1a;padding:14px;background:#050f05;"><div style="font-size:8px;letter-spacing:2px;color:#2a5a2a;">QUIZZES MADE</div><div id="p-made" style="font-size:22px;color:#fa0;font-weight:bold;">0</div></div>
+      </div>
+      <div style="font-size:10px;letter-spacing:3px;color:var(--g);margin-bottom:10px;">RECENT SCORES</div>
+      <div id="p-history" style="border:1px solid #1a3a1a;padding:12px;background:#050f05;max-height:200px;overflow-y:auto;font-size:10px;color:#2a5a2a;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PLAY SCREEN (full screen overlay) -->
+<div id="play-screen">
+  <div class="play-progress" id="play-prog">Q 1 / 10</div>
+  <div class="play-timer" id="play-timer">20</div>
+  <div class="play-q" id="play-q">Question text here</div>
+  <div class="play-answers" id="play-answers"></div>
+  <div class="play-score" id="play-score-disp">Score: 0</div>
+  <button class="btn" id="play-next" onclick="nextQuestion()" style="display:none;">NEXT →</button>
+  <button class="btn red" onclick="quitPlay()">QUIT</button>
+</div>
+
+<!-- CREATE / EDIT QUIZ MODAL -->
+<div class="modal-ov" id="create-modal">
+  <div class="modal-box wide">
+    <div class="modal-title" id="create-modal-title">CREATE QUIZ</div>
+    <input type="hidden" id="edit-quiz-id"/>
+    <div class="form-group">
+      <div class="lbl">QUIZ TITLE</div>
+      <input class="inp" id="qz-title" placeholder="e.g. Year 9 Science" maxlength="60"/>
+    </div>
+    <div class="form-group">
+      <div class="lbl">DESCRIPTION</div>
+      <input class="inp" id="qz-desc" placeholder="Short description..." maxlength="100"/>
+    </div>
+    <div class="form-group" style="display:flex;gap:12px;align-items:center;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:1px;cursor:pointer;">
+        <input type="checkbox" id="qz-public" style="accent-color:var(--g);width:14px;height:14px;"> PUBLIC (visible to all)
+      </label>
+      <div style="flex:1;"></div>
+      <div class="lbl" style="margin:0;">TIME PER Q (sec)</div>
+      <select class="inp" id="qz-time" style="width:80px;margin:0;cursor:pointer;">
+        <option value="10">10</option><option value="15">15</option>
+        <option value="20" selected>20</option><option value="30">30</option><option value="60">60</option>
+      </select>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0 4px;">
+      <div style="font-size:10px;letter-spacing:2px;color:var(--g);">QUESTIONS <span id="q-count" style="color:#2a5a2a;font-size:9px;"></span></div>
+      <button class="btn" onclick="addQuestion()" style="padding:5px 14px;font-size:9px;">➕ ADD QUESTION</button>
+    </div>
+    <div id="q-list" style="max-height:340px;overflow-y:auto;"></div>
+    <div class="err" id="create-err"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn primary" onclick="saveQuiz()">💾 SAVE QUIZ</button>
+      <button class="btn" onclick="closeModal('create-modal')">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS MODAL -->
+<div class="modal-ov" id="results-modal">
+  <div class="modal-box">
+    <div class="modal-title">RESULTS</div>
+    <div id="results-content"></div>
+    <button class="btn primary" onclick="closeModal('results-modal')">DONE</button>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-ov" id="confirm-modal">
+  <div class="modal-box">
+    <div class="modal-title">CONFIRM</div>
+    <div id="confirm-body" style="font-size:12px;color:#aaa;line-height:1.6;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn red" onclick="confirmYes()">YES, DELETE</button>
+      <button class="btn" onclick="closeModal('confirm-modal')">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────────────────────────────────────
+const SB_URL='https://esgunecokerphecjrtjw.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzZ3VuZWNva2VycGhlY2pydGp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDA5NjM0NDUsImV4cCI6MjA1NjUzOTQ0NX0.iAj9NVgCWcMTbYl5mEwKPVKiRbZfDCAvgpAynkPJAXY';
+
+async function sbReq(method,path,body=null,params=''){
+  const url=`${SB_URL}/rest/v1/${path}${params?'?'+params:''}`;
+  const r=await fetch(url,{method,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'},body:body?JSON.stringify(body):null});
+  if(!r.ok){console.error(await r.text());return null;}
+  const t=await r.text();return t?JSON.parse(t):[];
+}
+
+let ME=null; // current user profile from localStorage
+let allQuizzes=[];
+let pendingConfirm=null;
+
+// ── COSMETICS CATALOGUE ───────────────────────────────────────────────────────
+const AVATARS=[
+  {id:'a_default',icon:'🎮',name:'CONTROLLER',cost:0,desc:'Default avatar'},
+  {id:'a_robot',icon:'🤖',name:'ROBOT',cost:100,desc:'Mechanical genius'},
+  {id:'a_wizard',icon:'🧙',name:'WIZARD',cost:200,desc:'Master of knowledge'},
+  {id:'a_alien',icon:'👽',name:'ALIEN',cost:150,desc:'From outer space'},
+  {id:'a_dino',icon:'🦕',name:'DINO',cost:120,desc:'Prehistoric scholar'},
+  {id:'a_cat',icon:'😺',name:'CAT',cost:80,desc:'Curious feline'},
+  {id:'a_crown',icon:'👑',name:'ROYALTY',cost:500,desc:'Top of the class'},
+  {id:'a_fire',icon:'🔥',name:'ON FIRE',cost:300,desc:'Unstoppable'},
+  {id:'a_rocket',icon:'🚀',name:'ROCKET',cost:250,desc:'Going places'},
+  {id:'a_diamond',icon:'💎',name:'DIAMOND',cost:800,desc:'Rare and brilliant'},
+  {id:'a_ninja',icon:'🥷',name:'NINJA',cost:400,desc:'Silent but deadly smart'},
+  {id:'a_brain',icon:'🧠',name:'BIG BRAIN',cost:350,desc:'Pure intellect'},
+];
+const BANNERS=[
+  {id:'b_none',label:'NO BANNER',color:'',cost:0,desc:'Plain and simple'},
+  {id:'b_green',label:'🌿 NATURE',color:'rgba(63,191,63,.2)',border:'#3fbf3f',cost:60,desc:'Fresh and natural'},
+  {id:'b_fire',label:'🔥 FIRE',color:'rgba(255,80,20,.2)',border:'#ff5014',cost:100,desc:'Blazing hot'},
+  {id:'b_ocean',label:'🌊 OCEAN',color:'rgba(30,140,230,.2)',border:'#1e8ce6',cost:100,desc:'Deep blue'},
+  {id:'b_galaxy',label:'🌌 GALAXY',color:'rgba(130,80,255,.2)',border:'#8250ff',cost:200,desc:'Out of this world'},
+  {id:'b_gold',label:'⭐ GOLD',color:'rgba(255,200,20,.2)',border:'#ffc814',cost:300,desc:'Pure gold'},
+];
+
+// ── LOCAL DATA STORAGE ────────────────────────────────────────────────────────
+// Quizzes stored in Supabase settings table as JSON blobs (keyed by user)
+// Player profile (coins, inventory) stored in localStorage
+
+function loadProfile(){
+  const u=localStorage.getItem('loggedInUser');
+  if(!u){window.location.href='index.html';return null;}
+  const key='qzProfile_'+u;
+  let p=JSON.parse(localStorage.getItem(key)||'null');
+  if(!p){p={username:u,coins:200,avatar:'a_default',banner:'b_none',totalScore:0,gamesPlayed:0,history:[],owned:['a_default','b_none']}; localStorage.setItem(key,JSON.stringify(p));}
+  return p;
+}
+function saveProfile(){if(ME)localStorage.setItem('qzProfile_'+ME.username,JSON.stringify(ME));}
+
+function loadQuizzes(){
+  const raw=localStorage.getItem('qzQuizzes');
+  return raw?JSON.parse(raw):[];
+}
+function saveQuizzes(arr){localStorage.setItem('qzQuizzes',JSON.stringify(arr));}
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const p=document.getElementById('page-'+id);if(p)p.classList.add('active');
+  const pages=['home','discover','my-quizzes','shop','profile'];
+  const idx=pages.indexOf(id);
+  document.querySelectorAll('.nav-btn')[idx]?.classList.add('active');
+  if(id==='home')renderHome();
+  if(id==='discover')renderDiscover();
+  if(id==='my-quizzes')renderMyQuizzes();
+  if(id==='shop')renderShop();
+  if(id==='profile')renderProfile();
+}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function confirmYes(){closeModal('confirm-modal');if(pendingConfirm)pendingConfirm();pendingConfirm=null;}
+function qzLogout(){
+  try{var t=localStorage.getItem('scpTheme');if(t)localStorage.setItem('scpLastTheme',t);}catch(e){}
+  localStorage.removeItem('loggedInUser');localStorage.removeItem('_scp_st');localStorage.removeItem('_scp_su');
+  sessionStorage.clear();window.location.href='index.html';
+}
+
+// ── HOME ─────────────────────────────────────────────────────────────────────
+function renderHome(){
+  const all=loadQuizzes();
+  document.getElementById('stat-quizzes').textContent=all.filter(q=>q.public).length;
+  document.getElementById('stat-coins').textContent=ME.coins;
+  document.getElementById('stat-played').textContent=ME.gamesPlayed;
+  const av=AVATARS.find(a=>a.id===ME.avatar)||AVATARS[0];
+  document.getElementById('home-avatar').textContent=av.icon;
+  const recent=all.filter(q=>q.public).sort((a,b)=>b.createdAt-a.createdAt).slice(0,6);
+  document.getElementById('home-recent').innerHTML='';
+  recent.forEach(q=>document.getElementById('home-recent').appendChild(quizCard(q,false)));
+}
+
+// ── DISCOVER ─────────────────────────────────────────────────────────────────
+function renderDiscover(){
+  const q=(document.getElementById('disc-search').value||'').toLowerCase();
+  const sort=document.getElementById('disc-sort').value;
+  let all=loadQuizzes().filter(qz=>qz.public);
+  if(q)all=all.filter(qz=>(qz.title||'').toLowerCase().includes(q)||(qz.desc||'').toLowerCase().includes(q));
+  if(sort==='popular')all.sort((a,b)=>(b.plays||0)-(a.plays||0));
+  else if(sort==='az')all.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+  else all.sort((a,b)=>b.createdAt-a.createdAt);
+  const g=document.getElementById('discover-grid');g.innerHTML='';
+  if(!all.length){g.innerHTML='<div style="color:#2a5a2a;font-size:11px;letter-spacing:2px;">// NO PUBLIC QUIZZES YET //</div>';return;}
+  all.forEach(qz=>g.appendChild(quizCard(qz,false)));
+}
+
+// ── MY QUIZZES ────────────────────────────────────────────────────────────────
+function renderMyQuizzes(){
+  const all=loadQuizzes().filter(q=>q.author===ME.username);
+  const g=document.getElementById('my-quiz-grid');g.innerHTML='';
+  if(!all.length){g.innerHTML='<div style="color:#2a5a2a;font-size:11px;letter-spacing:2px;">// YOU HAVE NO QUIZZES YET — CREATE ONE! //</div>';return;}
+  all.forEach(q=>g.appendChild(quizCard(q,true)));
+}
+
+function quizCard(q,isOwner){
+  const div=document.createElement('div');div.className='quiz-card';
+  const av=AVATARS.find(a=>a.id===ME.avatar)||AVATARS[0];
+  div.innerHTML=`
+    <span class="qc-badge ${q.public?'badge-pub':'badge-priv'}">${q.public?'PUBLIC':'PRIVATE'}</span>
+    <h3>${escH(q.title)}</h3>
+    <p>${escH(q.desc||'')}</p>
+    <div class="qc-meta">
+      <span>📝 ${(q.questions||[]).length} questions</span>
+      <span>▶ ${q.plays||0} plays</span>
+      ${isOwner?`<span>✎ <a href="#" onclick="openEditQuiz('${q.id}');return false;" style="color:var(--g);">EDIT</a></span>`:''}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+      <button class="btn primary" style="padding:6px 14px;font-size:9px;" onclick="startPlay('${q.id}')">▶ PLAY</button>
+      ${isOwner?`<button class="btn" style="padding:6px 14px;font-size:9px;border-color:#555;color:#555;" onclick="togglePublic('${q.id}')">
+        ${q.public?'🔒 MAKE PRIVATE':'🌐 MAKE PUBLIC'}</button>
+      <button class="btn red" style="padding:6px 14px;font-size:9px;" onclick="deleteQuiz('${q.id}')">🗑</button>`:''}
+    </div>`;
+  return div;
+}
+
+// ── CREATE / EDIT QUIZ ────────────────────────────────────────────────────────
+let editingQuestions=[];
+
+function openCreateModal(){
+  document.getElementById('edit-quiz-id').value='';
+  document.getElementById('qz-title').value='';
+  document.getElementById('qz-desc').value='';
+  document.getElementById('qz-public').checked=false;
+  document.getElementById('qz-time').value='20';
+  document.getElementById('create-err').textContent='';
+  document.getElementById('create-modal-title').textContent='CREATE QUIZ';
+  editingQuestions=[];
+  addQuestion();renderQList();
+  openModal('create-modal');
+}
+function openEditQuiz(id){
+  const q=loadQuizzes().find(x=>x.id===id);if(!q)return;
+  document.getElementById('edit-quiz-id').value=id;
+  document.getElementById('qz-title').value=q.title||'';
+  document.getElementById('qz-desc').value=q.desc||'';
+  document.getElementById('qz-public').checked=!!q.public;
+  document.getElementById('qz-time').value=q.timePerQ||20;
+  document.getElementById('create-modal-title').textContent='EDIT QUIZ';
+  editingQuestions=JSON.parse(JSON.stringify(q.questions||[]));
+  if(!editingQuestions.length)addQuestion();
+  renderQList();
+  openModal('create-modal');
+}
+function addQuestion(){
+  editingQuestions.push({text:'',answers:['','','',''],correct:0});
+  renderQList();
+}
+function renderQList(){
+  const list=document.getElementById('q-list');list.innerHTML='';
+  document.getElementById('q-count').textContent='('+editingQuestions.length+')';
+  editingQuestions.forEach((q,qi)=>{
+    const div=document.createElement('div');div.className='q-item';
+    div.innerHTML=`<div class="q-num">QUESTION ${qi+1}</div>
+      <input class="ans-inp" style="width:100%;margin-bottom:6px;" placeholder="Question text..." value="${escH(q.text)}" oninput="editingQuestions[${qi}].text=this.value"/>
+      <div style="font-size:8px;letter-spacing:2px;color:#2a5a2a;margin-bottom:4px;">ANSWERS (click ✓ to set correct)</div>
+      <div class="ans-row">
+        ${q.answers.map((a,ai)=>`
+          <div style="display:flex;align-items:center;gap:4px;">
+            <button onclick="editingQuestions[${qi}].correct=${ai};renderQList()" style="background:transparent;border:1px solid ${q.correct===ai?'var(--g)':'#333'};color:${q.correct===ai?'var(--g)':'#333'};cursor:pointer;padding:2px 6px;font-size:10px;" title="Set as correct">✓</button>
+            <input class="ans-inp ${q.correct===ai?'correct-inp':''}" placeholder="Answer ${ai+1}" value="${escH(a)}" oninput="editingQuestions[${qi}].answers[${ai}]=this.value" style="flex:1;"/>
+          </div>`).join('')}
+      </div>
+      <button class="q-del" onclick="editingQuestions.splice(${qi},1);renderQList()">✕</button>`;
+    list.appendChild(div);
+  });
+}
+function saveQuiz(){
+  const title=document.getElementById('qz-title').value.trim();
+  const desc=document.getElementById('qz-desc').value.trim();
+  const isPublic=document.getElementById('qz-public').checked;
+  const timePerQ=parseInt(document.getElementById('qz-time').value)||20;
+  const err=document.getElementById('create-err');
+  if(!title){err.textContent='Title is required.';return;}
+  if(editingQuestions.length<1){err.textContent='Add at least 1 question.';return;}
+  for(let i=0;i<editingQuestions.length;i++){
+    const q=editingQuestions[i];
+    if(!q.text.trim()){err.textContent=`Question ${i+1} needs text.`;return;}
+    if(q.answers.filter(a=>a.trim()).length<2){err.textContent=`Question ${i+1} needs at least 2 answers.`;return;}
+  }
+  err.textContent='';
+  const all=loadQuizzes();
+  const editId=document.getElementById('edit-quiz-id').value;
+  if(editId){
+    const idx=all.findIndex(x=>x.id===editId);
+    if(idx!==-1)all[idx]={...all[idx],title,desc,public:isPublic,timePerQ,questions:editingQuestions,updatedAt:Date.now()};
+  }else{
+    all.push({id:genId(),title,desc,public:isPublic,timePerQ,questions:editingQuestions,author:ME.username,createdAt:Date.now(),plays:0});
+    ME.history.push({type:'created',title,at:Date.now()});saveProfile();
+  }
+  saveQuizzes(all);
+  closeModal('create-modal');
+  renderMyQuizzes();
+}
+function togglePublic(id){
+  const all=loadQuizzes();
+  const q=all.find(x=>x.id===id);if(!q)return;
+  q.public=!q.public;saveQuizzes(all);renderMyQuizzes();
+}
+function deleteQuiz(id){
+  const q=loadQuizzes().find(x=>x.id===id);
+  pendingConfirm=()=>{saveQuizzes(loadQuizzes().filter(x=>x.id!==id));renderMyQuizzes();};
+  document.getElementById('confirm-body').textContent=`Delete "${q?q.title:'this quiz'}"? This cannot be undone.`;
+  openModal('confirm-modal');
+}
+
+// ── PLAY ─────────────────────────────────────────────────────────────────────
+let playQ=null,playIdx=0,playScore=0,playTimer=null,playAnswered=false,playTimeLeft=0;
+
+function startPlay(id){
+  const q=loadQuizzes().find(x=>x.id===id);if(!q||!q.questions.length)return;
+  // Increment plays
+  const all=loadQuizzes();const qi=all.findIndex(x=>x.id===id);if(qi!==-1){all[qi].plays=(all[qi].plays||0)+1;saveQuizzes(all);}
+  playQ=q;playIdx=0;playScore=0;playAnswered=false;
+  document.getElementById('play-screen').style.display='flex';
+  showQuestion();
+}
+function showQuestion(){
+  if(playIdx>=playQ.questions.length){endPlay();return;}
+  const q=playQ.questions[playIdx];
+  playAnswered=false;
+  document.getElementById('play-prog').textContent='Q '+(playIdx+1)+' / '+playQ.questions.length;
+  document.getElementById('play-q').textContent=q.text;
+  document.getElementById('play-score-disp').textContent='Score: '+playScore;
+  document.getElementById('play-next').style.display='none';
+  const aDiv=document.getElementById('play-answers');aDiv.innerHTML='';
+  const cols=['#e53935','#1e88e5','#43a047','#fdd835'];
+  q.answers.forEach((a,i)=>{
+    if(!a.trim())return;
+    const btn=document.createElement('button');btn.className='play-ans';btn.textContent=a;
+    btn.style.borderColor=cols[i%4];btn.style.color=cols[i%4];
+    if(cols[i%4]==='#fdd835')btn.style.color='#9a8000';
+    btn.onclick=()=>answerQ(i);
+    aDiv.appendChild(btn);
+  });
+  // Timer
+  playTimeLeft=playQ.timePerQ||20;
+  document.getElementById('play-timer').textContent=playTimeLeft;
+  clearInterval(playTimer);
+  playTimer=setInterval(()=>{
+    playTimeLeft--;
+    document.getElementById('play-timer').textContent=playTimeLeft;
+    document.getElementById('play-timer').style.color=playTimeLeft<=5?'#f44':'var(--gold)';
+    if(playTimeLeft<=0){clearInterval(playTimer);if(!playAnswered)timeOut();}
+  },1000);
+}
+function answerQ(idx){
+  if(playAnswered)return;playAnswered=true;clearInterval(playTimer);
+  const q=playQ.questions[playIdx];
+  const btns=document.querySelectorAll('.play-ans');
+  btns.forEach((b,i)=>{
+    if(i===q.correct)b.classList.add('correct');
+    else b.classList.add('wrong');
+  });
+  if(idx===q.correct){
+    const bonus=Math.max(0,Math.floor(playTimeLeft/playQ.timePerQ*500));
+    playScore+=100+bonus;
+    document.getElementById('play-score-disp').textContent='Score: '+playScore+' (+'+( 100+bonus)+')';
+  }
+  document.getElementById('play-next').style.display='block';
+}
+function timeOut(){
+  playAnswered=true;
+  const q=playQ.questions[playIdx];
+  document.querySelectorAll('.play-ans').forEach((b,i)=>{if(i===q.correct)b.classList.add('correct');else b.classList.add('wrong');});
+  document.getElementById('play-next').style.display='block';
+}
+function nextQuestion(){playIdx++;showQuestion();}
+function quitPlay(){clearInterval(playTimer);document.getElementById('play-screen').style.display='none';}
+function endPlay(){
+  clearInterval(playTimer);
+  document.getElementById('play-screen').style.display='none';
+  // Award coins
+  const coinsEarned=Math.floor(playScore/50);
+  ME.coins+=coinsEarned;ME.gamesPlayed++;ME.totalScore+=playScore;
+  ME.history.unshift({type:'played',title:playQ.title,score:playScore,coins:coinsEarned,at:Date.now()});
+  if(ME.history.length>20)ME.history=ME.history.slice(0,20);
+  saveProfile();
+  // Show results
+  document.getElementById('results-content').innerHTML=`
+    <div style="text-align:center;padding:16px 0;">
+      <div style="font-size:36px;margin-bottom:8px;">${playScore>500?'🏆':playScore>200?'⭐':'🎮'}</div>
+      <div style="font-size:28px;color:var(--g);font-weight:bold;letter-spacing:4px;margin-bottom:4px;">${playScore} pts</div>
+      <div style="font-size:11px;color:#2a5a2a;letter-spacing:2px;margin-bottom:16px;">${playQ.questions.length} questions · ${ME.gamesPlayed} total games</div>
+      <div style="font-size:14px;color:var(--gold);letter-spacing:2px;">+${coinsEarned} 💰 COINS EARNED</div>
+    </div>`;
+  openModal('results-modal');
+  renderHome();
+}
+
+// ── SHOP ─────────────────────────────────────────────────────────────────────
+function renderShop(){
+  document.getElementById('shop-coins').textContent='💰 '+ME.coins+' coins';
+  const ag=document.getElementById('shop-avatars');ag.innerHTML='';
+  AVATARS.forEach(item=>{
+    const owned=ME.owned.includes(item.id);const isActive=ME.avatar===item.id;
+    const div=document.createElement('div');div.className='shop-item'+(owned?' owned':'');
+    div.innerHTML=`<div class="si-icon">${item.icon}</div>
+      <div class="si-name">${item.name}</div>
+      <div class="si-cost">${owned?'✓ OWNED':item.cost===0?'FREE':'💰 '+item.cost}</div>
+      <div class="si-desc">${item.desc}</div>
+      <button class="btn ${isActive?'primary':''}" style="padding:5px 14px;font-size:9px;width:100%;" onclick="equipAvatar('${item.id}')" ${isActive?'disabled':''}>
+        ${isActive?'EQUIPPED':owned?'EQUIP':'BUY'}</button>`;
+    ag.appendChild(div);
+  });
+  const bg=document.getElementById('shop-banners');bg.innerHTML='';
+  BANNERS.forEach(item=>{
+    const owned=ME.owned.includes(item.id);const isActive=ME.banner===item.id;
+    const div=document.createElement('div');div.className='shop-item'+(owned?' owned':'');
+    div.innerHTML=`<div class="si-icon" style="background:${item.color||'transparent'};border:1px solid ${item.border||'#333'};width:80%;margin:0 auto 8px;height:40px;display:flex;align-items:center;justify-content:center;font-size:14px;letter-spacing:2px;color:${item.border||'#555'};">${item.label}</div>
+      <div class="si-name">${item.label}</div>
+      <div class="si-cost">${owned?'✓ OWNED':item.cost===0?'FREE':'💰 '+item.cost}</div>
+      <div class="si-desc">${item.desc}</div>
+      <button class="btn ${isActive?'primary':''}" style="padding:5px 14px;font-size:9px;width:100%;" onclick="equipBanner('${item.id}')" ${isActive?'disabled':''}>
+        ${isActive?'EQUIPPED':owned?'EQUIP':'BUY'}</button>`;
+    bg.appendChild(div);
+  });
+}
+function equipAvatar(id){
+  const item=AVATARS.find(a=>a.id===id);if(!item)return;
+  if(!ME.owned.includes(id)){if(ME.coins<item.cost){alert('Not enough coins!');return;}ME.coins-=item.cost;ME.owned.push(id);}
+  ME.avatar=id;saveProfile();renderShop();renderHome();
+}
+function equipBanner(id){
+  const item=BANNERS.find(b=>b.id===id);if(!item)return;
+  if(!ME.owned.includes(id)){if(ME.coins<item.cost){alert('Not enough coins!');return;}ME.coins-=item.cost;ME.owned.push(id);}
+  ME.banner=id;saveProfile();renderShop();
+}
+
+// ── PROFILE ───────────────────────────────────────────────────────────────────
+function renderProfile(){
+  const av=AVATARS.find(a=>a.id===ME.avatar)||AVATARS[0];
+  const bn=BANNERS.find(b=>b.id===ME.banner)||BANNERS[0];
+  document.getElementById('profile-avatar').textContent=av.icon;
+  document.getElementById('profile-name').textContent=ME.username.toUpperCase();
+  const bEl=document.getElementById('profile-banner');
+  bEl.textContent=bn.label;bEl.style.background=bn.color||'transparent';bEl.style.border='1px solid '+(bn.border||'transparent');bEl.style.color=bn.border||'#555';
+  document.getElementById('p-score').textContent=ME.totalScore;
+  document.getElementById('p-coins').textContent=ME.coins;
+  document.getElementById('p-played').textContent=ME.gamesPlayed;
+  document.getElementById('p-made').textContent=loadQuizzes().filter(q=>q.author===ME.username).length;
+  const hist=document.getElementById('p-history');
+  if(!ME.history.length){hist.textContent='No activity yet.';return;}
+  hist.innerHTML=ME.history.map(h=>{
+    const d=new Date(h.at);const ds=d.toLocaleDateString()+'  '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+    return `<div style="padding:5px 0;border-bottom:1px solid #0a1a0a;">${h.type==='played'?'▶ Played':'✎ Created'} <span style="color:var(--g);">${escH(h.title)}</span> ${h.score!=null?' — '+h.score+' pts':''} <span style="float:right;color:#1a3a1a;">${ds}</span></div>`;
+  }).join('');
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+ME=loadProfile();
+if(!ME){window.location.href='index.html';}
+else{
+  document.getElementById('nav-user').textContent=ME.username.toUpperCase();
+  showPage('home');
+}
+</script>
+</body>
+</html>

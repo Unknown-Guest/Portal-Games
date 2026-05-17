@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Coin Toss Game</title>
+    <link rel="stylesheet" href="Coin.css">
+</head>
+<body>
+
+<div id="game-wrapper">
+
+    <div id="top-bar">
+        <h1 id="title">Coin Toss</h1>
+        <div id="score-box">Score: <span id="score">0</span></div>
+		<div id="difficulty-box">
+    Difficulty:
+    <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+        <option value="impossible">Impossible</option>
+    </select>
+</div>
+
+        <button id="shop-btn">Shop</button>
+    </div>
+
+    <div id="game-area">
+        <div id="coin" class="default-coin">?</div>
+
+        <div id="choices">
+            <button class="choice" data-choice="heads">Heads</button>
+            <button class="choice" data-choice="tails">Tails</button>
+        </div>
+    </div>
+
+    <!-- SHOP MENU -->
+    <div id="shop" class="hidden">
+        <h2>Shop</h2>
+
+        <h3>Coin Skins</h3>
+        <div class="shop-row">
+            <button class="shop-item" data-type="coin" data-value="gold">Gold Coin (5 pts)</button>
+            <button class="shop-item" data-type="coin" data-value="blue">Blue Coin (5 pts)</button>
+            <button class="shop-item" data-type="coin" data-value="neon">Neon Coin (10 pts)</button>
+        </div>
+
+        <h3>Backgrounds</h3>
+        <div class="shop-row">
+            <button class="shop-item" data-type="bg" data-value="dark">Dark Mode (5 pts)</button>
+            <button class="shop-item" data-type="bg" data-value="sunset">Sunset (10 pts)</button>
+        </div>
+
+        <h3>Text Styles</h3>
+        <div class="shop-row">
+            <button class="shop-item" data-type="text" data-value="retro">Retro Text (5 pts)</button>
+            <button class="shop-item" data-type="text" data-value="bubble">Bubble Text (10 pts)</button>
+        </div>
+
+        <button id="close-shop">Close</button>
+    </div>
+
+</div>
+
+<script src="Coin.js"></script>
+</body>
+</html>

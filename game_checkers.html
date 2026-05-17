@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHECKERS</title>
+<style>
+:root { --g:#3fbf3f; --gs:#6fdc6f; --gd:#2a9f2a; --r:#ff4444; --gold:#ffcc00; --bg:#000; }
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{ background:var(--bg); color:var(--g); font-family:Arial,sans-serif;
+      display:flex; flex-direction:column; min-height:100vh; user-select:none; }
+#hdr{ border-bottom:2px solid var(--g); box-shadow:0 0 14px color-mix(in srgb,var(--g) 60%,transparent);
+       padding:10px 24px; display:flex; align-items:center; gap:16px; flex-shrink:0;
+       background:var(--bg); position:sticky; top:0; z-index:10; }
+#hdr-title{ font-size:20px; font-weight:bold; letter-spacing:5px;
+             text-shadow:0 0 10px var(--g); flex:1; text-align:center; }
+#hdr-sub{ font-size:9px; letter-spacing:2px; color:var(--gs); text-align:center; }
+.back-btn{ padding:5px 14px; border:1px solid var(--g); background:transparent;
+            color:var(--g); font-size:10px; letter-spacing:2px; cursor:pointer; transition:.15s; white-space:nowrap; }
+.back-btn:hover{ background:var(--g); color:#000; }
+#game-wrap{ flex:1; display:flex; justify-content:center; align-items:flex-start;
+             flex-direction:column; gap:10px; padding:14px 16px 24px;
+             align-items:center; overflow-y:auto; }
+.score-bar{ display:flex; gap:20px; font-size:11px; letter-spacing:2px; color:var(--gs);
+             flex-shrink:0; flex-wrap:wrap; justify-content:center; }
+.score-val{ color:var(--g); font-weight:bold; font-size:13px; }
+.btn{ padding:7px 20px; border:1px solid var(--g); background:transparent; color:var(--g);
+       font-size:11px; letter-spacing:2px; cursor:pointer; transition:.15s; }
+.btn:hover{ background:var(--g); color:#000; }
+.btn.red{ border-color:var(--r); color:var(--r); }
+.btn.red:hover{ background:var(--r); color:#000; }
+
+#ol-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:500;
+              align-items:center; justify-content:center; font-family:monospace; }
+#ol-overlay.open { display:flex; }
+#ol-box { border:1px solid var(--g,#3fbf3f); padding:32px 36px; min-width:320px; max-width:420px;
+          width:90vw; display:flex; flex-direction:column; gap:14px; background:#040f04;
+          box-shadow:0 0 40px rgba(0,180,0,0.2); }
+.ol-title { font-size:13px; letter-spacing:5px; color:var(--g,#3fbf3f); text-align:center; }
+.ol-sub   { font-size:9px; letter-spacing:2px; color:#2a4a2a; text-align:center; margin-top:-8px; }
+.ol-btn   { background:transparent; border:1px solid var(--g,#3fbf3f); color:var(--g,#3fbf3f);
+            padding:10px; font-size:10px; letter-spacing:3px; cursor:pointer; font-family:monospace; width:100%; }
+.ol-btn:hover { background:var(--g,#3fbf3f); color:#000; }
+.ol-btn.red   { border-color:#ff3333; color:#ff3333; }
+.ol-btn.red:hover { background:#ff3333; color:#000; }
+.ol-btn.gold  { border-color:#ffaa00; color:#ffaa00; }
+.ol-btn.gold:hover { background:#ffaa00; color:#000; }
+.ol-input { background:#000; border:1px solid #1a3a1a; color:#eee; padding:10px 12px;
+            font-size:14px; letter-spacing:4px; font-family:monospace; width:100%;
+            text-align:center; text-transform:uppercase; outline:none; }
+.ol-input:focus { border-color:var(--g,#3fbf3f); }
+.ol-code { font-size:32px; letter-spacing:8px; color:var(--g,#3fbf3f); text-align:center;
+           text-shadow:0 0 20px var(--g,#3fbf3f); font-weight:bold; }
+.ol-info { font-size:10px; letter-spacing:2px; color:#3a5a3a; text-align:center; }
+.ol-err  { font-size:10px; color:#ff3333; text-align:center; min-height:14px; letter-spacing:1px; }
+.ol-sep  { border:none; border-top:1px solid #1a2a1a; margin:4px 0; }
+#ol-status-bar { font-size:10px; letter-spacing:2px; color:#ffaa00; text-align:center;
+                 padding:6px; border:1px solid #2a2a00; background:#0a0a00; display:none; }
+
+
+#ck-outer{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+#ck-board-wrap{ border:2px solid var(--g); box-shadow:0 0 20px color-mix(in srgb,var(--g) 40%,transparent); }
+#ck-board{ display:grid; grid-template-columns:repeat(8,60px); grid-template-rows:repeat(8,60px); }
+.ck-sq{ width:60px; height:60px; display:flex; align-items:center; justify-content:center;
+        cursor:pointer; position:relative; }
+.ck-light{ background:#1a2a1a; }
+.ck-dark { background:#0c140c; }
+.ck-sel  { background:#224422 !important; }
+.ck-hint::after{ content:''; position:absolute; width:22px; height:22px; border-radius:50%;
+  background:color-mix(in srgb,var(--g) 35%,transparent); border:1px solid var(--g); }
+.ck-pc{ width:50px; height:50px; border-radius:50%; border:3px solid; z-index:2; position:relative;
+        display:flex; align-items:center; justify-content:center;
+        font-size:24px; line-height:1; pointer-events:none;
+        box-shadow:0 3px 10px rgba(0,0,0,.7), inset 0 1px 3px rgba(255,255,255,.15); }
+.ck-red { background:radial-gradient(circle at 35% 35%,#ff7777,#cc1111); border-color:#ff5555; color:#ffaaaa; }
+.ck-grn { background:radial-gradient(circle at 35% 35%,color-mix(in srgb,var(--g) 80%,#fff),color-mix(in srgb,var(--g) 60%,#000)); border-color:var(--g); color:#fff; }
+#ck-status{ font-size:12px; letter-spacing:2px; color:var(--gs); text-align:center; min-height:18px; }
+#ck-diff-row{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+.diff-btn{ padding:5px 14px; border:1px solid #2a2a2a; background:transparent;
+           color:#555; font-size:10px; letter-spacing:1px; cursor:pointer; transition:.15s; border-radius:12px; }
+.diff-btn.active{ border-color:var(--g); color:var(--g); background:color-mix(in srgb,var(--g) 10%,transparent); }
+
+</style>
+</head>
+<body>
+<div id="hdr">
+  <button class="back-btn" onclick="(function(){if(window.opener||window.history.length<=1){window.close();}else{location.href='websites.html';}})()">← BACK</button>
+  <div style="flex:1;text-align:center;">
+    <div id="hdr-title">CHECKERS</div>
+    <div id="hdr-sub"></div>
+  </div>
+  <div style="width:90px;display:flex;justify-content:flex-end;align-items:center;gap:8px;">
+  <button onclick="_goFS()" style="background:transparent;border:1px solid #2a4a2a;color:#3a6a3a;font-size:10px;letter-spacing:1px;padding:4px 8px;cursor:pointer;font-family:monospace;" title="Fullscreen (F)">&#9974; FULL</button>
+</div>
+</div>
+<div id="game-wrap">
+
+<div id="ck-outer">
+<div class="score-bar">
+  <span>&#129002; YOU <span class="score-val" id="ck-sg">0</span></span>
+  <span>&#128308; CPU <span class="score-val" id="ck-sr">0</span></span>
+</div>
+<div id="ck-status">YOUR TURN</div>
+<div id="ck-diff-row">
+  <span style="font-size:10px;letter-spacing:1px;color:var(--gs);">MODE:</span>
+  <button class="diff-btn active" id="ck-m2p"  onclick="ckSetMode('2p')">2 PLAYER</button>
+  <button class="mode-btn" onclick="olOpen('checkers')" style="border-color:#ffaa00;color:#ffaa00;">&#127758; ONLINE</button>
+  
+  <button class="diff-btn"        id="ck-measy" onclick="ckSetMode('easy')">EASY</button>
+  <button class="diff-btn"        id="ck-mmed"  onclick="ckSetMode('med')">MEDIUM</button>
+  <button class="diff-btn"        id="ck-mhard" onclick="ckSetMode('hard')">HARD</button>
+</div>
+<div id="ck-board-wrap"><div id="ck-board"></div></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+  <button class="btn" onclick="ckInit()">? NEW GAME</button>
+</div>
+<div style="font-size:9px;letter-spacing:1px;color:#444;">&#9819; = KING</div>
+</div>
+<div id="ol-status-bar"></div>
+
+<div id="ol-status-bar"></div>
+<div id="ol-overlay">
+  <div id="ol-box">
+    <!-- Screen: logged-out guest -->
+    <div id="ol-screen-guest" style="display:none;">
+      <div class="ol-title">ONLINE PLAY</div>
+      <div class="ol-sub">REQUIRES AN ACCOUNT</div>
+      <hr class="ol-sep">
+      <div class="ol-info">You need a portal account to play online.<br>You can still play offline or vs bots.</div>
+      <button class="ol-btn" onclick="olClose()">PLAY OFFLINE</button>
+    </div>
+
+    <!-- Screen: choose mode -->
+    <div id="ol-screen-menu" style="display:none;">
+      <div class="ol-title">ONLINE PLAY</div>
+      <div class="ol-sub" id="ol-user-label"></div>
+      <hr class="ol-sep">
+      <button class="ol-btn gold" onclick="olQuickMatch()">&#9889; QUICK MATCH</button>
+      <button class="ol-btn" onclick="olShowCreate()">&#43; CREATE ROOM</button>
+      <button class="ol-btn" onclick="olShowJoin()">&#8594; JOIN WITH CODE</button>
+      <hr class="ol-sep">
+      <button class="ol-btn red" onclick="olClose()">PLAY OFFLINE</button>
+    </div>
+
+    <!-- Screen: create room -->
+    <div id="ol-screen-create" style="display:none;">
+      <div class="ol-title">YOUR ROOM CODE</div>
+      <div class="ol-sub">SHARE THIS WITH YOUR OPPONENT</div>
+      <div class="ol-code" id="ol-room-display">------</div>
+      <div class="ol-info">Waiting for opponent to join...</div>
+      <div class="ol-info" id="ol-waiting-dots">&#9632; &#9632; &#9632;</div>
+      <hr class="ol-sep">
+      <button class="ol-btn red" onclick="olCancelRoom()">CANCEL</button>
+    </div>
+
+    <!-- Screen: join room -->
+    <div id="ol-screen-join" style="display:none;">
+      <div class="ol-title">JOIN ROOM</div>
+      <div class="ol-sub">ENTER THE 6-CHARACTER CODE</div>
+      <input class="ol-input" id="ol-join-input" maxlength="6" placeholder="XXXXXX"
+             oninput="this.value=this.value.toUpperCase()"/>
+      <div class="ol-err" id="ol-join-err"></div>
+      <button class="ol-btn gold" onclick="olDoJoin()">JOIN</button>
+      <button class="ol-btn" onclick="olShowMenu()">BACK</button>
+    </div>
+
+    <!-- Screen: quick match searching -->
+    <div id="ol-screen-qm" style="display:none;">
+      <div class="ol-title">QUICK MATCH</div>
+      <div class="ol-sub">SEARCHING FOR OPPONENT...</div>
+      <div class="ol-code" style="font-size:24px;">&#128269;</div>
+      <div class="ol-info" id="ol-qm-status">Looking for a game...</div>
+      <hr class="ol-sep">
+      <button class="ol-btn red" onclick="olCancelQM()">CANCEL</button>
+    </div>
+  </div>
+</div>
+<div id="ol-status-bar"></div>
+
+</div>
+<script>
+(function(){
+  var t=JSON.parse(localStorage.getItem('scpLastTheme')||localStorage.getItem('scpTheme')||'{}');
+  var bg=t.bg||'#000000', ac=t.accent||'#3fbf3f';
+  document.documentElement.style.setProperty('--g', ac);
+  document.documentElement.style.setProperty('--bg', bg);
+  function lighten(hex,amt){
+    var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+    r=Math.min(255,r+amt);g=Math.min(255,g+amt);b=Math.min(255,b+amt);
+    return '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  document.documentElement.style.setProperty('--gs', lighten(ac,50));
+  document.documentElement.style.setProperty('--gd', lighten(ac,-30));
+  document.body.style.backgroundColor=bg;
+  document.getElementById('hdr').style.backgroundColor=bg;
+  // Disable right-click on all game pages
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; });
+  // Disable right-click drag image ghost
+  document.addEventListener('dragstart', function(e){ e.preventDefault(); return false; });
+})();
+//  ONLINE MULTIPLAYER ENGINE 
+// Inline this into each game. Handles rooms, polling, state sync.
+
+const SB_URL = 'https://esgunecokerphecjrtjw.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzZ3VuZWNva2VycGhlY2pydGp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODQ1ODksImV4cCI6MjA4ODI2MDU4OX0.RUr9owzkstT75xCUMQ6Ru9bQC_im99gnv2AlYwFVrwI';
+
+async function ogReq(method, params, body) {
+    const url = SB_URL + '/rest/v1/online_games' + (params ? '?' + params : '');
+    const r = await fetch(url, {
+        method: method || 'GET',
+        headers: {
+            'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY,
+            'Content-Type': 'application/json', 'Prefer': 'return=representation'
+        },
+        body: body ? JSON.stringify(body) : undefined
+    });
+    const t = await r.text();
+    if (!r.ok) { console.error('ogReq error:', r.status, t); return null; }
+    return t ? JSON.parse(t) : [];
+}
+
+// Generate 6-char room code
+function ogRoomCode() {
+    return Math.random().toString(36).slice(2,8).toUpperCase();
+}
+
+// Create a room
+async function ogCreate(gameType, player, initState) {
+    const id = ogRoomCode();
+    const r = await ogReq('POST', null, {
+        id, game_type: gameType, player1: player,
+        state: JSON.stringify(initState), turn: player,
+        status: 'waiting', created_at: Date.now(), updated_at: Date.now()
+    });
+    return r ? id : null;
+}
+
+// Join a room by code
+async function ogJoin(code, player) {
+    const rows = await ogReq('GET', 'id=eq.' + code + '&status=eq.waiting');
+    if (!rows || !rows.length) return null;
+    const game = rows[0];
+    if (game.player2) return null; // already full
+    if (game.player1 === player) return null; // can't play yourself
+    const r = await ogReq('PATCH', 'id=eq.' + code, {
+        player2: player, status: 'active', updated_at: Date.now()
+    });
+    return r !== null ? game : null;
+}
+
+// Quick match - find waiting room or create one
+async function ogQuickMatch(gameType, player) {
+    const rows = await ogReq('GET', 'game_type=eq.' + gameType + '&status=eq.waiting&order=created_at.asc&limit=10');
+    if (rows && rows.length) {
+        for (const g of rows) {
+            if (g.player1 !== player) {
+                const joined = await ogJoin(g.id, player);
+                if (joined) return { code: g.id, role: 'player2', game: joined };
+            }
+        }
+    }
+    // No match found, create room
+    return null; // caller creates room
+}
+
+// Poll for state updates
+async function ogPoll(code) {
+    const rows = await ogReq('GET', 'id=eq.' + code);
+    return rows && rows.length ? rows[0] : null;
+}
+
+// Push a move (update state + flip turn)
+async function ogMove(code, newState, nextTurn) {
+    return await ogReq('PATCH', 'id=eq.' + code, {
+        state: JSON.stringify(newState), turn: nextTurn,
+        updated_at: Date.now()
+    });
+}
+
+// End game
+async function ogEnd(code, winner) {
+    return await ogReq('PATCH', 'id=eq.' + code, {
+        status: 'finished', winner: winner || 'draw', updated_at: Date.now()
+    });
+}
+
+// Abandon game
+async function ogAbandon(code) {
+    return await ogReq('PATCH', 'id=eq.' + code, {
+        status: 'abandoned', updated_at: Date.now()
+    });
+}
+
+// Delete game row entirely (call after game ends to save storage)
+async function ogDelete(code) {
+    return await ogReq('DELETE', 'id=eq.' + code);
+}
+
+// Clean up stale finished/abandoned rooms older than 1 hour
+async function ogCleanup() {
+    const cutoff = Date.now() - (60 * 60 * 1000); // 1 hour ago
+    // Delete finished games
+    await ogReq('DELETE', 'status=eq.finished&updated_at=lt.' + cutoff);
+    // Delete abandoned games
+    await ogReq('DELETE', 'status=eq.abandoned&updated_at=lt.' + cutoff);
+    // Delete waiting rooms older than 10 minutes (nobody joined)
+    const waitCutoff = Date.now() - (10 * 60 * 1000);
+    await ogReq('DELETE', 'status=eq.waiting&created_at=lt.' + waitCutoff);
+}
+
+
+//  ONLINE LOBBY CONTROLLER 
+let _olGameType = '';
+let _olPlayer = '';
+let _olRoomCode = '';
+let _olRole = ''; // 'player1' or 'player2'
+let _olOpponent = ''; // opponent username
+let _olPollTimer = null;
+let _olWaitTimer = null;
+let _olLastUpdated = 0;
+let _olActive = false;
+let _olQmCode = '';
+
+// Called by game to open lobby
+function olOpen(gameType) {
+    _olGameType = gameType;
+    _olPlayer = localStorage.getItem('loggedInUser') || '';
+    document.getElementById('ol-overlay').classList.add('open');
+    if (!_olPlayer) {
+        olShow('guest');
+    } else {
+        document.getElementById('ol-user-label').textContent = 'LOGGED IN AS ' + _olPlayer.toUpperCase();
+        olShow('menu');
+    }
+}
+
+function olClose() {
+    document.getElementById('ol-overlay').classList.remove('open');
+    clearInterval(_olPollTimer);
+    clearTimeout(_olWaitTimer);
+    _olActive = false;
+}
+
+async function olAbandonAndClose() {
+    clearInterval(_olPollTimer);
+    clearTimeout(_olWaitTimer);
+    _olActive = false;
+    const bar = document.getElementById('ol-status-bar');
+    if (bar) bar.style.display = 'none';
+    if (_olRoomCode) { await ogAbandon(_olRoomCode); _olRoomCode = ''; }
+}
+
+function olShow(screen) {
+    ['guest','menu','create','join','qm'].forEach(s => {
+        const el = document.getElementById('ol-screen-' + s);
+        if (el) el.style.display = s === screen ? '' : 'none';
+    });
+}
+
+function olShowMenu() { olShow('menu'); }
+function olShowCreate() {
+    olShow('create');
+    document.getElementById('ol-room-display').textContent = '...';
+    document.getElementById('ol-waiting-dots').textContent = String.fromCharCode(9632) + ' ' + String.fromCharCode(9632) + ' ' + String.fromCharCode(9632);
+    olCreateRoom();
+}
+function olShowJoin() {
+    document.getElementById('ol-join-input').value = '';
+    document.getElementById('ol-join-err').textContent = '';
+    olShow('join');
+}
+
+// Create a room and wait for opponent
+async function olCreateRoom() {
+    // Silently clean up stale rooms before creating a new one
+    ogCleanup().catch(() => {});
+    const initState = typeof olGetInitState === 'function' ? olGetInitState() : {};
+    const code = await ogCreate(_olGameType, _olPlayer, initState);
+    if (!code) { alert('Could not create room. Check connection.'); olShow('menu'); return; }
+    _olRoomCode = code;
+    _olRole = 'player1';
+    document.getElementById('ol-room-display').textContent = code;
+    // Animate waiting dots
+    let dots = 0;
+    const dotChars = [String.fromCharCode(9632)+' '+String.fromCharCode(9632)+' '+String.fromCharCode(9632),
+                      String.fromCharCode(9632)+' '+String.fromCharCode(9633)+' '+String.fromCharCode(9633),
+                      String.fromCharCode(9632)+' '+String.fromCharCode(9632)+' '+String.fromCharCode(9633)];
+    _olWaitTimer = setInterval(() => {
+        document.getElementById('ol-waiting-dots').textContent = dotChars[dots % 3]; dots++;
+    }, 600);
+    // Poll for player2 joining
+    _olPollTimer = setInterval(async () => {
+        const g = await ogPoll(_olRoomCode);
+        if (!g) return;
+        if (g.status === 'active' && g.player2) {
+            clearInterval(_olPollTimer);
+            clearInterval(_olWaitTimer);
+            olStartGame(g);
+        }
+        if (g.status === 'abandoned') {
+            clearInterval(_olPollTimer); clearInterval(_olWaitTimer);
+            olShow('menu');
+        }
+    }, 1500);
+}
+
+// Cancel room while waiting
+async function olCancelRoom() {
+    clearInterval(_olPollTimer); clearInterval(_olWaitTimer);
+    if (_olRoomCode) await ogAbandon(_olRoomCode);
+    _olRoomCode = '';
+    olShow('menu');
+}
+
+// Join by code
+async function olDoJoin() {
+    const code = document.getElementById('ol-join-input').value.trim().toUpperCase();
+    if (code.length !== 6) { document.getElementById('ol-join-err').textContent = 'Code must be 6 characters.'; return; }
+    document.getElementById('ol-join-err').textContent = 'Joining...';
+    const game = await ogJoin(code, _olPlayer);
+    if (!game) { document.getElementById('ol-join-err').textContent = 'Room not found or already full.'; return; }
+    _olRoomCode = code;
+    _olRole = 'player2';
+    olStartGame(game);
+}
+
+// Quick match
+async function olQuickMatch() {
+    olShow('qm');
+    document.getElementById('ol-qm-status').textContent = 'Searching...';
+    const match = await ogQuickMatch(_olGameType, _olPlayer);
+    if (match) {
+        _olRoomCode = match.code;
+        _olRole = match.role;
+        olStartGame(match.game);
+        return;
+    }
+    // No match - create room and wait
+    document.getElementById('ol-qm-status').textContent = 'No opponents found  created a room, waiting...';
+    const initState = typeof olGetInitState === 'function' ? olGetInitState() : {};
+    const code = await ogCreate(_olGameType, _olPlayer, initState);
+    if (!code) { document.getElementById('ol-qm-status').textContent = 'Error creating room.'; return; }
+    _olQmCode = code;
+    _olRoomCode = code;
+    _olRole = 'player1';
+    _olPollTimer = setInterval(async () => {
+        const g = await ogPoll(_olRoomCode);
+        if (!g) return;
+        if (g.status === 'active' && g.player2) {
+            clearInterval(_olPollTimer);
+            olStartGame(g);
+        }
+    }, 1500);
+}
+
+function olCancelQM() {
+    clearInterval(_olPollTimer);
+    if (_olQmCode) { ogAbandon(_olQmCode); _olQmCode = ''; }
+    _olRoomCode = '';
+    olShow('menu');
+}
+
+// Called when game is ready to start
+function olStartGame(game) {
+    _olActive = true;
+    // Store opponent's username so we can set turn correctly
+    window._olOpponent = _olRole === 'player1' ? game.player2 : game.player1;
+    document.getElementById('ol-overlay').classList.remove('open');
+    // Show status bar
+    const bar = document.getElementById('ol-status-bar');
+    bar.style.display = 'block';
+    const opp = _olRole === 'player1' ? game.player2 : game.player1;
+    bar.textContent = String.fromCharCode(9668) + ' ' + (_olRole === 'player1' ? 'You are WHITE' : 'You are BLACK') + '  |  vs ' + opp.toUpperCase() + '  |  Room: ' + _olRoomCode;
+    // Parse initial state
+    try { var st = JSON.parse(game.state); } catch(e) { var st = {}; }
+    // Tell the game to start online mode
+    _olOpponent = _olRole === 'player1' ? (game.player2 || '') : (game.player1 || '');
+    if (typeof olOnStart === 'function') olOnStart(game, _olRole, st);
+    // Start polling for opponent moves
+    _olLastUpdated = game.updated_at || 0;
+    clearInterval(_olPollTimer);
+    _olPollTimer = setInterval(olPollOpponent, 1500);
+}
+
+async function olPollOpponent() {
+    if (!_olActive || !_olRoomCode) return;
+    const g = await ogPoll(_olRoomCode);
+    if (!g) return;
+    if (g.status === 'finished' || g.status === 'abandoned') {
+        clearInterval(_olPollTimer);
+        _olActive = false;
+        document.getElementById('ol-status-bar').textContent = g.status === 'finished'
+            ? 'GAME OVER  ' + (g.winner === _olPlayer ? 'YOU WON!' : g.winner === 'draw' ? 'DRAW!' : g.winner.toUpperCase() + ' WON!')
+            : 'OPPONENT DISCONNECTED';
+        if (typeof olOnEnd === 'function') olOnEnd(g.winner);
+        // Clean up: delete the row so storage stays lean
+        const _finishedCode = _olRoomCode;
+        setTimeout(async () => { try { await ogDelete(_finishedCode); } catch(e){} }, 10000);
+        return;
+    }
+    if (g.updated_at > _olLastUpdated && (g.turn === _olPlayer || g.turn === '')) {
+        _olLastUpdated = g.updated_at;
+        try { var st = JSON.parse(g.state); } catch(e) { var st = {}; }
+        if (typeof olOnOpponentMove === 'function') olOnOpponentMove(st);
+    }
+}
+
+// Called by game after making a move
+async function olSendMove(newState) {
+    if (!_olActive || !_olRoomCode) return;
+    // Set turn to opponent's username so their poll fires
+    const nextTurn = window._olOpponent || '';
+    const result = await ogMove(_olRoomCode, newState, nextTurn);
+    if (result && Array.isArray(result) && result[0]) {
+        // Use the server's actual updated_at so we don't re-trigger on our own write
+        _olLastUpdated = result[0].updated_at || Date.now();
+    } else if (result) {
+        // Fallback - use server time approximation
+        _olLastUpdated = Date.now();
+    }
+}
+
+async function olSendEnd(winner) {
+    if (!_olRoomCode) return;
+    clearInterval(_olPollTimer);
+    _olActive = false;
+    await ogEnd(_olRoomCode, winner);
+    // Delete the row after 10 seconds - gives opponent time to see result, then frees storage
+    const _codeToDelete = _olRoomCode;
+    setTimeout(async () => { await ogDelete(_codeToDelete); }, 10000);
+}
+
+
+let _ckOnline=false,_ckMyColor='g';
+
+function _ckSetOnlineUI(on) {
+    ['ck-m2p','ck-measy','ck-mmed','ck-mhard'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) { b.style.opacity = on ? '0.3' : ''; b.style.pointerEvents = on ? 'none' : ''; }
+    });
+    const newBtn = document.querySelector('#ck-outer .btn');
+    if (newBtn) {
+        if (on) {
+            newBtn.textContent = 'LEAVE MATCH';
+            newBtn.onclick = () => { if(confirm('Leave the match?')) { _ckOnline=false; olAbandonAndClose(); _ckSetOnlineUI(false); ckInit(); } };
+        } else {
+            newBtn.textContent = '\u21ba NEW GAME';
+            newBtn.onclick = ckInit;
+        }
+    }
+}
+
+function olGetInitState(){const b=Array(64).fill(0);for(let r=0;r<3;r++)for(let c=0;c<8;c++)if((r+c)%2===1)b[r*8+c]='r';for(let r=5;r<8;r++)for(let c=0;c<8;c++)if((r+c)%2===1)b[r*8+c]='g';return{board:b,turn:'g'};}
+function olOnStart(game,role,state){
+    _ckOnline=true;ckMode='online';_ckMyColor=role==='player1'?'g':'r';
+    ckBoard=state.board||olGetInitState().board;ckTurn=state.turn||'g';
+    ckSel=null;ckChainSq=null;ckBusy=false;ckScore={g:0,r:0};ckRender();
+    const opp=(role==='player1'?game.player2:game.player1)||'?';
+    ckSetStatus('ONLINE vs '+opp.toUpperCase()+' -- You are '+(_ckMyColor==='g'?'GREEN':'RED'));
+    _ckSetOnlineUI(true);
+}
+function olOnOpponentMove(state){ckBoard=state.board;ckTurn=state.turn;ckSel=null;ckChainSq=null;ckBusy=false;ckRender();if(ckCheckWin())return;ckSetStatus('YOUR TURN');}
+function olOnEnd(w){const me=localStorage.getItem('loggedInUser')||'';ckSetStatus(w==='draw'?'DRAW!':w===me?'YOU WIN!':'YOU LOSE!');_ckSetOnlineUI(false);_ckOnline=false;}
+
+
+
+let ckBoard, ckTurn, ckSel, ckChainSq, ckScore={g:0,r:0}, ckMode='2p', ckBusy=false;
+
+function ckSetMode(m) {
+    ckMode=m;
+    ['2p','easy','med','hard'].forEach(x=>{
+        const b=document.getElementById('ck-m'+x); if(b) b.className='diff-btn'+(x===m?' active':'');
+    });
+    ckInit();
+}
+
+function ckInit() {
+    ckBoard=Array(64).fill(0);
+    for(let r=0;r<3;r++) for(let c=0;c<8;c++) if((r+c)%2===1) ckBoard[r*8+c]='r';
+    for(let r=5;r<8;r++) for(let c=0;c<8;c++) if((r+c)%2===1) ckBoard[r*8+c]='g';
+    ckTurn='g'; ckSel=null; ckChainSq=null; ckBusy=false;
+    ckRender(); ckSetStatus('YOUR TURN');
+}
+
+function ckRender(hints=[]) {
+    const board=document.getElementById('ck-board'); board.innerHTML='';
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++) {
+        const s=r*8+c, dark=(r+c)%2===1;
+        const sq=document.createElement('div');
+        sq.className='ck-sq '+(dark?'ck-dark':'ck-light');
+        if(dark) {
+            if(ckSel===s) sq.classList.add('ck-sel');
+            if(hints.includes(s)) sq.classList.add('ck-hint');
+            const p=ckBoard[s];
+            if(p) {
+                const pc=document.createElement('div');
+                const col=p.toLowerCase();
+                pc.className='ck-pc '+(col==='g'?'ck-grn':'ck-red');
+                pc.textContent=p===p.toUpperCase()?'&#9819;':'';
+                sq.appendChild(pc);
+            }
+            sq.addEventListener('click', ()=>ckClick(s));
+        }
+        board.appendChild(sq);
+    }
+}
+
+function ckSetStatus(m){ document.getElementById('ck-status').textContent=m; }
+
+// Returns list of moves for piece at sq: {to, cap?}
+function ckPieceMoves(sq) {
+    const p=ckBoard[sq]; if(!p) return [];
+    const col=p.toLowerCase(), r=Math.floor(sq/8), c=sq%8;
+    const dirs=[];
+    if(col==='g'||p!==p.toLowerCase()) dirs.push([-1,-1],[-1,1]);
+    if(col==='r'||p!==p.toLowerCase()) dirs.push([1,-1],[1,1]);
+    const jumps=[], steps=[];
+    for(const [dr,dc] of dirs) {
+        const nr=r+dr, nc=c+dc;
+        if(nr<0||nr>7||nc<0||nc>7) continue;
+        const ns=nr*8+nc, np=ckBoard[ns];
+        if(!np) { steps.push({to:ns}); }
+        else if(np.toLowerCase()!==col) {
+            const jr=nr+dr, jc=nc+dc;
+            if(jr>=0&&jr<=7&&jc>=0&&jc<=7&&!ckBoard[jr*8+jc])
+                jumps.push({to:jr*8+jc, cap:ns});
+        }
+    }
+    // Mandatory jump: if ANY piece of this color can jump, only return jumps for this piece
+    return jumps.length ? jumps : (ckAnyJump(col) ? [] : steps);
+}
+
+function ckAnyJump(col) {
+    for(let s=0;s<64;s++) {
+        const p=ckBoard[s]; if(!p||p.toLowerCase()!==col) continue;
+        const r=Math.floor(s/8),c=s%8;
+        const dirs=[];
+        if(p.toLowerCase()==='g'||p!==p.toLowerCase()) dirs.push([-1,-1],[-1,1]);
+        if(p.toLowerCase()==='r'||p!==p.toLowerCase()) dirs.push([1,-1],[1,1]);
+        for(const [dr,dc] of dirs) {
+            const nr=r+dr,nc=c+dc;
+            if(nr<0||nr>7||nc<0||nc>7) continue;
+            const ns=nr*8+nc,np=ckBoard[ns];
+            if(np&&np.toLowerCase()!==col) {
+                const jr=nr+dr,jc=nc+dc;
+                if(jr>=0&&jr<=7&&jc>=0&&jc<=7&&!ckBoard[jr*8+jc]) return true;
+            }
+        }
+    }
+    return false;
+}
+
+function ckAllMoves(col) {
+    const moves=[];
+    for(let s=0;s<64;s++) {
+        const p=ckBoard[s]; if(!p||p.toLowerCase()!==col) continue;
+        ckPieceMoves(s).forEach(m=>moves.push({from:s,...m}));
+    }
+    return moves;
+}
+
+function ckApplyMove(b, from, to, cap) {
+    const nb=[...b]; nb[to]=nb[from]; nb[from]=0;
+    if(cap!==undefined) nb[cap]=0;
+    const r=Math.floor(to/8);
+    if(nb[to]==='g'&&r===0) nb[to]='G';
+    if(nb[to]==='r'&&r===7) nb[to]='R';
+    return nb;
+}
+
+function ckClick(s) {
+    if(ckBusy) return;
+    if(_ckOnline) {
+        if(ckTurn !== _ckMyColor) { ckSetStatus('WAIT FOR OPPONENT...'); return; }
+    } else {
+        if(ckMode!=='2p' && ckTurn==='r') return;
+    }
+
+    // Chain jump: only allow the piece that just jumped
+    if(ckChainSq!==null && s!==ckChainSq && ckBoard[s]) {
+        if(s===ckSel) { ckSel=null; ckChainSq=null; ckRender(); return; }
+        return;
+    }
+
+    const p=ckBoard[s];
+
+    if(ckSel===null) {
+        if(!p || p.toLowerCase()!==ckTurn) return;
+        if(ckChainSq!==null && s!==ckChainSq) return;
+        const moves=ckPieceMoves(s);
+        if(!moves.length) return; // mandatory jump elsewhere
+        ckSel=s;
+        ckRender(moves.map(m=>m.to));
+    } else {
+        if(s===ckSel) { ckSel=null; ckChainSq=null; ckRender(); return; }
+        const moves=ckPieceMoves(ckSel);
+        const mv=moves.find(m=>m.to===s);
+        if(mv) {
+            ckBoard=ckApplyMove(ckBoard, ckSel, mv.to, mv.cap);
+            ckRender();
+            // Check for chain jump
+            if(mv.cap!==undefined) {
+                const further=ckPieceMovesDirect(mv.to, 'jump');
+                if(further.length) {
+                    ckSel=mv.to; ckChainSq=mv.to;
+                    ckRender(further.map(m=>m.to));
+                    return;
+                }
+            }
+            ckSel=null; ckChainSq=null;
+            ckTurn=ckTurn==='g'?'r':'g';
+            if(ckCheckWin()) return;
+            if(_ckOnline) {
+                olSendMove({board:[...ckBoard], turn:ckTurn}, _olPlayer);
+                ckSetStatus('OPPONENTS TURN...');
+            } else {
+                ckSetStatus(ckTurn==='g'?'YOUR TURN':(ckMode==='2p'?'REDS TURN':'CPU THINKING...'));
+                if(ckMode!=='2p' && ckTurn==='r') { ckBusy=true; setTimeout(ckCpuMove, 400); }
+            }
+        } else if(p && p.toLowerCase()===ckTurn && ckChainSq===null) {
+            ckSel=s;
+            const m2=ckPieceMoves(s);
+            ckRender(m2.map(m=>m.to));
+        } else { ckSel=null; ckRender(); }
+    }
+}
+
+// Moves for a specific piece ignoring mandatory-jump rule (for chain check)
+function ckPieceMovesDirect(sq, type) {
+    const p=ckBoard[sq]; if(!p) return [];
+    const col=p.toLowerCase(), r=Math.floor(sq/8), c=sq%8;
+    const dirs=[];
+    if(col==='g'||p!==p.toLowerCase()) dirs.push([-1,-1],[-1,1]);
+    if(col==='r'||p!==p.toLowerCase()) dirs.push([1,-1],[1,1]);
+    const jumps=[];
+    for(const [dr,dc] of dirs) {
+        const nr=r+dr,nc=c+dc;
+        if(nr<0||nr>7||nc<0||nc>7) continue;
+        const ns=nr*8+nc,np=ckBoard[ns];
+        if(np&&np.toLowerCase()!==col) {
+            const jr=nr+dr,jc=nc+dc;
+            if(jr>=0&&jr<=7&&jc>=0&&jc<=7&&!ckBoard[jr*8+jc])
+                jumps.push({to:jr*8+jc,cap:ns});
+        }
+    }
+    return type==='jump' ? jumps : [];
+}
+
+function ckCheckWin() {
+    // Send win to Supabase if online
+    const _ckWinOnline = (winner) => {
+        if(_ckOnline) { const me=localStorage.getItem('loggedInUser')||''; olSendEnd(winner==='g'?me:'opponent'); }
+    };
+    const hasG=ckBoard.some(p=>p&&p.toLowerCase()==='g');
+    const hasR=ckBoard.some(p=>p&&p.toLowerCase()==='r');
+    if(!hasG||!ckAllMoves('g').length) {
+        ckScore.r++; document.getElementById('ck-sr').textContent=ckScore.r;
+        ckSetStatus('&#128308; RED WINS!'); return true;
+    }
+    if(!hasR||!ckAllMoves('r').length) {
+        ckScore.g++; document.getElementById('ck-sg').textContent=ckScore.g;
+        ckSetStatus('&#129002; YOU WIN! ?'); return true;
+    }
+    return false;
+}
+
+// ?? CPU AI ????????????????????????????????????????????????????????????????????
+function ckEval(b) {
+    let s=0;
+    for(let i=0;i<64;i++) {
+        const p=b[i]; if(!p) continue;
+        const v=p===p.toUpperCase()?4:1, r=Math.floor(i/8);
+        if(p.toLowerCase()==='r') s+=v+(p==='r'?(7-r)*0.1:0);
+        else s-=v+(p==='g'?r*0.1:0);
+    }
+    return s;
+}
+
+function ckMinimax(b, depth, alpha, beta, isMax) {
+    const col=isMax?'r':'g';
+    const moves=ckGetAllMoves(b,col);
+    if(!depth||!moves.length) return ckEvalBoard(b);
+    if(isMax) {
+        let best=-Infinity;
+        for(const m of moves) {
+            const nb=ckApplyMove(b,m.from,m.to,m.cap);
+            best=Math.max(best,ckMinimax(nb,depth-1,alpha,beta,false));
+            alpha=Math.max(alpha,best); if(beta<=alpha) break;
+        }
+        return best;
+    } else {
+        let best=Infinity;
+        for(const m of moves) {
+            const nb=ckApplyMove(b,m.from,m.to,m.cap);
+            best=Math.min(best,ckMinimax(nb,depth-1,alpha,beta,true));
+            beta=Math.min(beta,best); if(beta<=alpha) break;
+        }
+        return best;
+    }
+}
+
+function ckEvalBoard(b) {
+    let s=0;
+    for(let i=0;i<64;i++) {
+        const p=b[i]; if(!p) continue;
+        const v=p===p.toUpperCase()?5:1, r=Math.floor(i/8), c=i%8;
+        const center=-(Math.abs(r-3.5)+Math.abs(c-3.5))*0.05;
+        if(p.toLowerCase()==='r') s+=v+center+(p==='r'?(7-r)*0.12:0);
+        else s-=v-center+(p==='g'?r*0.12:0);
+    }
+    return s;
+}
+
+function ckGetAllMoves(b, col) {
+    const moves=[], hasJump=[];
+    for(let s=0;s<64;s++) {
+        const p=b[s]; if(!p||p.toLowerCase()!==col) continue;
+        const r=Math.floor(s/8),c=s%8;
+        const dirs=[];
+        if(p.toLowerCase()==='g'||p!==p.toLowerCase()) dirs.push([-1,-1],[-1,1]);
+        if(p.toLowerCase()==='r'||p!==p.toLowerCase()) dirs.push([1,-1],[1,1]);
+        const jumps=[],steps=[];
+        for(const [dr,dc] of dirs) {
+            const nr=r+dr,nc=c+dc;
+            if(nr<0||nr>7||nc<0||nc>7) continue;
+            const ns=nr*8+nc,np=b[ns];
+            if(!np) steps.push({from:s,to:ns});
+            else if(np.toLowerCase()!==col) {
+                const jr=nr+dr,jc=nc+dc;
+                if(jr>=0&&jr<=7&&jc>=0&&jc<=7&&!b[jr*8+jc])
+                    jumps.push({from:s,to:jr*8+jc,cap:ns});
+            }
+        }
+        jumps.forEach(m=>{moves.push(m);hasJump.push(true);});
+        steps.forEach(m=>{moves.push(m);hasJump.push(false);});
+    }
+    // If any jump exists, only return jumps
+    if(hasJump.some(j=>j)) return moves.filter((_,i)=>hasJump[i]);
+    return moves;
+}
+
+function ckCpuMove() {
+    ckBusy=true;
+    const depth = ckMode==='easy'?1:ckMode==='med'?2:4;
+    const moves=ckGetAllMoves(ckBoard,'r');
+    if(!moves.length) { ckBusy=false; ckCheckWin(); return; }
+    let best=-Infinity, bestMv=moves[0];
+    // Easy: pick random from decent moves
+    if(ckMode==='easy') { bestMv=moves[Math.floor(Math.random()*moves.length)]; }
+    else {
+        for(const m of moves) {
+            const nb=ckApplyMove(ckBoard,m.from,m.to,m.cap);
+            let s=ckMinimax(nb,depth-1,-Infinity,Infinity,false);
+            if(ckMode==='med') s+=Math.random()*0.4-0.2; // add noise for medium
+            if(s>best) { best=s; bestMv=m; }
+        }
+    }
+    ckBoard=ckApplyMove(ckBoard,bestMv.from,bestMv.to,bestMv.cap);
+    ckBusy=false;
+    ckRender();
+    ckTurn='g';
+    if(!ckCheckWin()) ckSetStatus('YOUR TURN');
+}
+
+function _scpApplyCheckersInviteFromURL(){
+    try{
+        var p=new URLSearchParams(location.search);
+        var code=(p.get('invite')||p.get('join')||'').trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
+        if(code.length!==6||!localStorage.getItem('loggedInUser'))return;
+        olOpen('checkers');
+        setTimeout(function(){
+            olShowJoin();
+            var inp=document.getElementById('ol-join-input');
+            if(inp)inp.value=code;
+            olDoJoin();
+            try{history.replaceState({},'',location.pathname+location.hash);}catch(e){}
+        },400);
+    }catch(e){}
+}
+window.onload=function(){ ckInit(); _scpApplyCheckersInviteFromURL(); };
+
+</script>
+<script>
+function _goFS(){if(!document.fullscreenElement){document.documentElement.requestFullscreen().catch(function(){});}else{document.exitFullscreen().catch(function(){});}}
+document.addEventListener('keydown',function(e){if(e.code==='KeyF')_goFS();});
+</script></body>
+</html>
